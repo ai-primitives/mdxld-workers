@@ -36,23 +36,18 @@ program
   .addHelpCommand()
   .showSuggestionAfterError()
 
-// Override exit behavior
-program.exitOverride((err) => {
-  if (err.code === 'commander.helpDisplayed' || err.code === 'commander.version') {
-    process.exit(0)
-  }
-  throw err
-})
+// Override exit behavior to prevent process.exit in tests
+program.exitOverride()
 
 // Show help by default if no command is provided
-if (!process.argv.slice(2).length) {
-  program.help()
+if (process.argv.length === 2) {
+  program.outputHelp()
 }
 
 // Handle unknown options and error cases
 program.on('command:*', () => {
   console.error('Invalid command: %s\nSee --help for a list of available commands.', program.args.join(' '))
-  process.exit(1)
+  throw new Error('Invalid command')
 })
 
 program
