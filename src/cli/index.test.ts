@@ -4,6 +4,7 @@ import type { CompileOptions, PlatformConfig, WranglerConfig } from '../deploy/t
 
 // Setup spies before importing program
 const exitSpy = vi.spyOn(process, 'exit').mockImplementation(function mockExit(code?: number | string | null | undefined): never {
+  vi.mocked(process.exit).mock.calls.push([code])
   throw new Error(`process.exit unexpectedly called with "${code}"`)
 })
 const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
