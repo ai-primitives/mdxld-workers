@@ -3,10 +3,10 @@ import { version } from '../../package.json'
 import type { CompileOptions, PlatformConfig, WranglerConfig } from '../deploy/types'
 
 // Setup spies before importing program
-const exitSpy = vi.spyOn(process, 'exit').mockImplementation(function mockExit(code?: number | string | null | undefined): never {
-  vi.mocked(process.exit).mock.calls.push([code])
+const mockExit = vi.fn((code?: string | number | null | undefined): never => {
   throw new Error(`process.exit unexpectedly called with "${code}"`)
-})
+}) as (code?: string | number | null | undefined) => never
+const exitSpy = vi.spyOn(process, 'exit').mockImplementation(mockExit)
 const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
 // Mock compiler module before importing program
