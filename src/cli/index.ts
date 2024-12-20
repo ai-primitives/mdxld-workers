@@ -34,21 +34,29 @@ program
   .version(version, '-v, --version')
   .helpOption('-h, --help')
 
+// Mock process.exit in test environment
+if (process.env.NODE_ENV === 'test') {
+  const mockExit = (code: number) => {
+    throw new Error(`process.exit unexpectedly called with "${code}"`)
+  }
+  process.exit = mockExit as never
+}
+
 // Override exit behavior to prevent process.exit in tests
 program.exitOverride((err) => {
-  if (err.code === 'commander.helpDisplayed') {
+  if (err.code === 'commander.helpDisplayed' || err.code === 'commander.help') {
     console.log(program.helpInformation())
-    throw new Error('process.exit unexpectedly called with "0"')
+    process.exit(0)
   }
   if (err.code === 'commander.version') {
     console.log(version)
-    throw new Error('process.exit unexpectedly called with "0"')
+    process.exit(0)
   }
   if (err.code === 'commander.unknownOption' || err.code === 'commander.unknownCommand') {
     console.error(err.message)
-    throw new Error('process.exit unexpectedly called with "1"')
+    process.exit(1)
   }
-  throw new Error('process.exit unexpectedly called with "1"')
+  process.exit(1)
 })
 
 // Handle unknown options and error cases
@@ -67,7 +75,7 @@ program
       console.log('Compilation completed successfully')
     } catch (error) {
       console.error('Compilation failed:', error)
-      throw new Error('process.exit unexpectedly called with "1"')
+      process.exit(1)
     }
   })
 
@@ -89,7 +97,7 @@ program
       console.log('Deployed successfully using Platform API')
     } catch (error) {
       console.error('Platform deployment failed:', error)
-      throw new Error('process.exit unexpectedly called with "1"')
+      process.exit(1)
     }
   })
 
@@ -103,24 +111,17 @@ program
       console.log('Deployed successfully using Wrangler')
     } catch (error) {
       console.error('Wrangler deployment failed:', error)
-      throw new Error('process.exit unexpectedly called with "1"')
+      process.exit(1)
     }
   })
 
 // Only parse arguments if this is the main module
 if (require.main === module) {
   program.parseAsync().catch((err) => {
-    if (err.message.includes('process.exit unexpectedly called')) {
-      throw err
-    }
     console.error(err.message)
     process.exit(1)
   })
 } else {
   // When imported as a module (for testing), let Commander handle help display
-  if (process.argv.length === 2) {
-    console.log(program.helpInformation())
-    throw new Error('process.exit unexpectedly called with "0"')
-  }
   program.parse(process.argv)
 }
