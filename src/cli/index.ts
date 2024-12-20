@@ -44,11 +44,9 @@ program
 
 // Override exit behavior for testing
 program.exitOverride((err) => {
-  const isHelpCommand = err.code === 'commander.helpDisplayed' ||
-                       err.code === 'commander.help' ||
-                       err.code === 'commander.missingArgument'
-
-  if (isHelpCommand) {
+  if (err.code === 'commander.help' ||
+      err.code === 'commander.helpDisplayed' ||
+      err.code === 'commander.missingArgument') {
     console.log(program.helpInformation())
     process.exit(0)
   }
@@ -110,26 +108,10 @@ program
     }
   })
 
-// Parse arguments
-const parseAndHandleErrors = async (args: string[]) => {
-  try {
-    await program.parseAsync(args)
-  } catch (err) {
-    if (err instanceof CommanderError) {
-      console.error(err.message)
-      process.exit(err.exitCode ?? 1)
-    } else if (err instanceof Error) {
-      console.error(err.message)
-      process.exit(1)
-    } else {
-      console.error('An unknown error occurred')
-      process.exit(1)
-    }
-  }
-}
-
+// Run CLI
 if (require.main === module) {
-  parseAndHandleErrors(process.argv)
-} else {
-  parseAndHandleErrors(process.argv)
+  program.parseAsync(process.argv).catch((err) => {
+    console.error(err.message)
+    process.exit(1)
+  })
 }
