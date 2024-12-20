@@ -27,32 +27,12 @@ interface DeployWranglerOptions {
 
 export const program = new Command()
 
-// Override exit behavior to prevent process.exit in tests
-program.exitOverride((err) => {
-  if (err.code === 'commander.help' || err.code === 'commander.version') {
-    console.log(program.helpInformation())
-    throw new Error('process.exit unexpectedly called with "0"')
-  }
-
-  // Handle unknown options and commands (exit code 1)
-  if (err.code === 'commander.unknownOption' || err.code === 'commander.unknownCommand') {
-    console.error(err.message)
-    throw new Error('process.exit unexpectedly called with "1"')
-  }
-
-  // Handle other errors with exit code 1
-  throw new Error('process.exit unexpectedly called with "1"')
-})
-
 // Configure program with help and version handling
 program
   .name('mdxld-workers')
   .description('CLI to compile and deploy MDXLD files to Cloudflare Workers')
   .version(version, '-v, --version', 'output the current version')
   .helpOption('-h, --help', 'display help for command')
-  .showHelpAfterError()
-  .addHelpCommand()
-  .showSuggestionAfterError()
 
 // Show help by default if no command is provided
 if (process.argv.length === 2) {
@@ -113,10 +93,10 @@ program
   .command('deploy-platform')
   .description('Deploy workers using Cloudflare Platform API')
   .argument('<input>', 'input worker file')
-  .option('-n, --name <name>', 'worker name')
-  .option('--account-id <id>', 'Cloudflare account ID')
-  .option('--namespace <namespace>', 'worker namespace')
-  .option('--api-token <token>', 'Cloudflare API token')
+  .requiredOption('-n, --name <name>', 'worker name')
+  .requiredOption('--account-id <id>', 'Cloudflare account ID')
+  .requiredOption('--namespace <namespace>', 'worker namespace')
+  .requiredOption('--api-token <token>', 'Cloudflare API token')
   .action(async (input: string, options: DeployPlatformOptions) => {
     try {
       const worker = await fs.readFile(input, 'utf-8')
@@ -139,8 +119,7 @@ program
   .command('deploy-wrangler')
   .description('Deploy workers using Wrangler')
   .argument('<input>', 'input worker file')
-  .option('-n, --name <name>', 'worker name')
-  .option('-c, --config <path>', 'wrangler config file path')
+  .requiredOption('-n, --name <name>', 'worker name')
   .action(async (input: string, options: DeployWranglerOptions) => {
     try {
       const worker = await fs.readFile(input, 'utf-8')
@@ -156,6 +135,23 @@ program
       return
     }
   })
+
+// Override exit behavior to prevent process.exit in tests
+program.exitOverride((err) => {
+  if (err.code === 'commander.help' || err.code === 'commander.version') {
+    // Ensure console output is captured before throwing
+    const output = program.helpInformation()
+    console.log(output)
+    throw new Error('process.exit unexpectedly called with "0"')
+  }
+
+  if (err.code === 'commander.unknownOption' || err.code === 'commander.unknownCommand') {
+    console.error(err.message)
+    throw new Error('process.exit unexpectedly called with "1"')
+  }
+
+  throw new Error('process.exit unexpectedly called with "1"')
+})
 
 // Only parse arguments if this is the main module
 if (require.main === module) {
