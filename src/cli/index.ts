@@ -39,21 +39,21 @@ program.exitOverride((err) => {
 })
 
 // Default compile options
-const defaultCompileOptions: CompileOptions = {
+const defaultCompileOptions = {
   jsx: {
-    importSource: 'hono/jsx',
-    runtime: 'react-jsx'
+    importSource: 'hono/jsx' as const,
+    runtime: 'react-jsx' as const
   },
   worker: {
     name: 'mdxld-worker',
     compatibilityDate: new Date().toISOString().split('T')[0]
   }
-}
+} satisfies CompileOptions
 
 interface CompileCommandOptions {
   name: string
   routes?: string
-  compatibilityDate?: string
+  compatibilityDate: string
 }
 
 program
@@ -61,7 +61,7 @@ program
   .argument('<input>', 'Input MDXLD file')
   .option('--name <name>', 'Worker name', defaultCompileOptions.worker.name)
   .option('--routes <routes>', 'Worker routes (comma-separated)')
-  .option('--compatibility-date <date>', 'Worker compatibility date')
+  .option('--compatibility-date <date>', 'Worker compatibility date', defaultCompileOptions.worker.compatibilityDate)
   .description('Compile MDXLD file to Cloudflare Worker')
   .action(async (input: string, options: CompileCommandOptions) => {
     try {
@@ -70,7 +70,7 @@ program
         worker: {
           name: options.name,
           routes: options.routes?.split(','),
-          compatibilityDate: options.compatibilityDate ?? defaultCompileOptions.worker.compatibilityDate
+          compatibilityDate: options.compatibilityDate
         }
       }
       await compile(input, compileOptions)
@@ -127,7 +127,7 @@ program
   })
 
 // Run CLI
-if (require.main === module) {
+if (typeof require !== 'undefined' && typeof module !== 'undefined' && require.main === module) {
   program.parseAsync(process.argv).catch((err) => {
     console.error(err instanceof Error ? err.message : 'An unknown error occurred')
     exit(1)
