@@ -110,3 +110,4 @@ describe('CLI', () => {
     expect(deployWrangler).toHaveBeenCalled()
     expect(consoleSpy).toHaveBeenCalledWith('Deployed successfully using Wrangler')
   })
+})
