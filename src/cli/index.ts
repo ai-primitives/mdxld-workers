@@ -3,8 +3,8 @@ import { Command } from 'commander'
 import { compile, type CompileOptions } from '../compiler'
 import { deployPlatform } from '../deploy/platform'
 import { deployWrangler } from '../deploy/wrangler'
-import type { PlatformConfig } from '../deploy/types'
 import { version } from '../../package.json'
+import type { PlatformConfig, PlatformOptions, WranglerOptions } from '../deploy/types'
 
 // Export for testing
 export const exit = (code: number): never => {
@@ -59,7 +59,7 @@ program
   .option('--name <name>', 'Worker name', defaultCompileOptions.worker.name)
   .option('--routes <routes...>', 'Worker routes')
   .description('Compile MDXLD file to Cloudflare Worker')
-  .action(async (input: string, options: any) => {
+  .action(async (input: string, options: CompileOptions) => {
     try {
       const compileOptions: CompileOptions = {
         ...defaultCompileOptions,
@@ -84,14 +84,15 @@ program
   .requiredOption('--account-id <accountId>', 'Cloudflare account ID')
   .requiredOption('--api-token <token>', 'Cloudflare API token')
   .requiredOption('--name <name>', 'Worker name')
-  .action(async (worker: string, options: any) => {
+  .action(async (worker: string, options: PlatformOptions) => {
     try {
       const config: PlatformConfig = {
-        namespace: options.namespace,
+        namespace: options.namespace || options.name, // Use name as fallback for namespace
         accountId: options.accountId,
-        apiToken: options.apiToken
+        apiToken: options.apiToken,
+        name: options.name
       }
-      await deployPlatform(worker, options.name, config)
+      await deployPlatform(worker, config)
       console.log('Platform deployment completed successfully')
     } catch (err) {
       console.error(err instanceof Error ? err.message : 'Deployment failed')
@@ -104,7 +105,7 @@ program
   .argument('<worker>', 'Worker file to deploy')
   .requiredOption('--name <name>', 'Worker name')
   .description('Deploy worker using Wrangler')
-  .action(async (worker: string, options: any) => {
+  .action(async (worker: string, options: WranglerOptions) => {
     try {
       await deployWrangler(worker, options.name)
       console.log('Deployed successfully using Wrangler')

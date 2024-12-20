@@ -20,6 +20,8 @@
     "no-undef": "error"
   },
   "globals": {
-    "globalThis": "readonly"
+    "globalThis": "readonly",
+    "require": "readonly",
+    "module": "readonly"
   }
 }

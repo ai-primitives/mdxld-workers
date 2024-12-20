@@ -12,6 +12,8 @@ export interface PlatformConfig {
   namespace: string
   /** API token for authentication */
   apiToken: string
+  /** Worker name */
+  name: string
 }
 
 /**
@@ -19,10 +21,9 @@ export interface PlatformConfig {
  */
 export async function deployPlatform(
   worker: string,
-  name: string,
   config: PlatformConfig
 ): Promise<void> {
-  const url = `https://api.cloudflare.com/client/v4/accounts/${config.accountId}/workers/dispatch/namespaces/${config.namespace}/scripts/${name}`
+  const url = `https://api.cloudflare.com/client/v4/accounts/${config.accountId}/workers/dispatch/namespaces/${config.namespace}/scripts/${config.name}`
 
   const response = await globalThis.fetch(url, {
     method: 'PUT',
