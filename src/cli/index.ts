@@ -19,6 +19,9 @@ const exit = process.exit
 export const program = new Command()
   .name('mdxld-workers')
   .description('CLI to compile and deploy MDXLD files to Cloudflare Workers')
+  .action(() => {
+    program.outputHelp()
+  })
 
 // Configure version and help
 program
