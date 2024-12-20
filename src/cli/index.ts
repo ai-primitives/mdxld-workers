@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { Command, Option } from 'commander'
+import { Command } from 'commander'
 import { compile } from '../compiler'
 import { deployPlatform } from '../deploy/platform'
 import { deployWrangler } from '../deploy/wrangler'
@@ -25,7 +25,7 @@ interface DeployWranglerOptions {
   config?: string
 }
 
-const program = new Command()
+export const program = new Command()
 
 program
   .name('mdxld-workers')

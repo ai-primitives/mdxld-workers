@@ -1,41 +1,37 @@
 import { describe, it, expect, vi } from 'vitest'
-import { parseArgs, showHelp, showVersion, cli } from './index'
+import { program } from './index'
 
 describe('CLI', () => {
-  it('should parse version flag correctly', () => {
-    const options = parseArgs(['-v'])
-    expect(options.version).toBe(true)
-
-    const longOptions = parseArgs(['--version'])
-    expect(longOptions.version).toBe(true)
-  })
-
-  it('should parse help flag correctly', () => {
-    const options = parseArgs(['-h'])
-    expect(options.help).toBe(true)
-
-    const longOptions = parseArgs(['--help'])
-    expect(longOptions.help).toBe(true)
-  })
-
-  it('should show version number', () => {
+  it('should show version when --version flag is used', () => {
     const consoleSpy = vi.spyOn(console, 'log')
-    showVersion()
+    program.parse(['node', 'cli', '--version'])
     expect(consoleSpy).toHaveBeenCalled()
     consoleSpy.mockRestore()
   })
 
-  it('should show help message', () => {
+  it('should show help when --help flag is used', () => {
     const consoleSpy = vi.spyOn(console, 'log')
-    showHelp()
+    program.parse(['node', 'cli', '--help'])
     expect(consoleSpy).toHaveBeenCalled()
     consoleSpy.mockRestore()
   })
 
-  it('should default to help when no arguments provided', () => {
+  it('should show help when no command is provided', () => {
     const consoleSpy = vi.spyOn(console, 'log')
-    cli([])
+    program.parse(['node', 'cli'])
     expect(consoleSpy).toHaveBeenCalled()
     consoleSpy.mockRestore()
+  })
+
+  it('should have compile command', () => {
+    expect(program.commands.some(cmd => cmd.name() === 'compile')).toBe(true)
+  })
+
+  it('should have deploy-platform command', () => {
+    expect(program.commands.some(cmd => cmd.name() === 'deploy-platform')).toBe(true)
+  })
+
+  it('should have deploy-wrangler command', () => {
+    expect(program.commands.some(cmd => cmd.name() === 'deploy-wrangler')).toBe(true)
   })
 })
