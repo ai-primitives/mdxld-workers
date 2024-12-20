@@ -15,12 +15,19 @@ import type {
 // Export for testing
 const exit = process.exit
 
-// Create and configure program
+// Create program instance
 export const program = new Command()
   .name('mdxld-workers')
   .description('CLI to compile and deploy MDXLD files to Cloudflare Workers')
-  .version(version, '-v, --version', 'output the version number')
-  .helpOption('-h, --help', 'display help for command')
+
+// Handle version flag
+program.option('-v, --version', 'output the version number')
+
+// Override version output to ensure proper logging
+program.on('option:version', () => {
+  console.log(version)
+  exit(0)
+})
 
 // Show help by default when no command is provided
 program
@@ -37,13 +44,9 @@ program.exitOverride((err) => {
   throw new Error(`process.exit unexpectedly called with "${err.exitCode}"`)
 })
 
-// Handle version output
-program.on('option:version', () => {
-  console.log(version)
-  exit(0)
-})
-
 // Handle help output
+program.helpOption('-h, --help', 'display help for command')
+
 program.on('--help', () => {
   const helpText = program.helpInformation()
   console.log(helpText)
@@ -74,53 +77,6 @@ interface CompileCommandOptions {
   routes?: string
   compatibilityDate: string
 }
-
-program
-  .command('compile')
-  .argument('<input>', 'Input MDXLD file')
-  .option('--name <name>', 'Worker name', defaultCompileOptions.worker.name)
-  .option('--routes <routes>', 'Worker routes (comma-separated)')
-  .option('--compatibility-date <date>', 'Worker compatibility date', defaultCompileOptions.worker.compatibilityDate)
-  .description('Compile MDXLD file to Cloudflare Worker')
-  .action(async (input: string, options: CompileCommandOptions) => {
-    try {
-      const compileOptions: CompileOptions = {
-        jsx: defaultCompileOptions.jsx,
-        worker: {
-          name: options.name,
-          routes: options.routes?.split(','),
-          compatibilityDate: options.compatibilityDate
-        }
-      }
-      await compile(input, compileOptions)
-      console.log('Compilation completed successfully')
-    } catch (err) {
-      console.error(err instanceof Error ? err.message : 'Compilation failed')
-      exit(1)
-    }
-  })
-
-program
-  .command('deploy-platform <worker>')
-  .description('Deploy worker using Cloudflare Platform API')
-  .requiredOption('--namespace <namespace>', 'Platform namespace')
-  .requiredOption('--account-id <accountId>', 'Cloudflare account ID')
-  .requiredOption('--api-token <token>', 'Cloudflare API token')
-  .requiredOption('--name <name>', 'Worker name')
-  .action(async (worker: string, options: PlatformOptions) => {
-    try {
-      const config: PlatformConfig = {
-        namespace: options.namespace || 'default', // Provide default namespace if undefined
-        accountId: options.accountId,
-        apiToken: options.apiToken
-      }
-      await deployPlatform(worker, options.name, config)
-      console.log('Platform deployment completed successfully')
-    } catch (err) {
-      console.error(err instanceof Error ? err.message : 'Deployment failed')
-      exit(1)
-    }
-  })
 
 program
   .command('deploy-wrangler')
