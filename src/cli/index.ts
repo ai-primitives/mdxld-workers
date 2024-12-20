@@ -34,14 +34,23 @@ program
   .version(version, '-v, --version')
   .helpOption('-h, --help')
 
-// Override exit behavior to ensure console output before exit
-program.exitOverride((err) => {
-  if (err.code === 'commander.helpDisplayed' || err.code === 'commander.version') {
-    throw err
+// Mock process.exit in test environment
+if (process.env.NODE_ENV === 'test') {
+  const mockExit = (code: number) => {
+    throw new Error(`process.exit unexpectedly called with "${code}"`)
   }
-  if (err.code === 'commander.unknownOption' || err.code === 'commander.unknownCommand') {
-    console.error(err.message)
-    throw err
+  process.exit = mockExit as never
+}
+
+// Override exit behavior for testing
+program.exitOverride((err) => {
+  if (err.code === 'commander.helpDisplayed') {
+    console.log(program.helpInformation())
+    process.exit(0)
+  }
+  if (err.code === 'commander.version') {
+    console.log(version)
+    process.exit(0)
   }
   throw err
 })
@@ -100,9 +109,6 @@ program
 // Parse arguments
 if (require.main === module) {
   program.parseAsync().catch((err) => {
-    if (err.code === 'commander.helpDisplayed' || err.code === 'commander.version') {
-      process.exit(0)
-    }
     console.error(err.message)
     process.exit(1)
   })
