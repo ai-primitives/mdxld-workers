@@ -38,8 +38,8 @@ program
 program.exitOverride((err) => {
   if (err.code === 'commander.version') {
     console.log(version)
-  } else if (err.code === 'commander.help' || err.code === 'commander.helpDisplayed') {
-    program.outputHelp()
+  } else if (err.code === 'commander.help' || !err.code) {
+    console.log(program.helpInformation())
   }
   throw new Error('process.exit unexpectedly called with "0"')
 })
