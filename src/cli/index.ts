@@ -156,6 +156,10 @@ program
 // Run CLI
 if (typeof require !== 'undefined' && require.main === module) {
   program.parseAsync(process.argv).catch((err) => {
+    // Check if error is from help text display
+    if (err instanceof Error && err.message.includes('process.exit unexpectedly called with "0"')) {
+      process.exit(0)
+    }
     console.error(err instanceof Error ? err.message : 'An unknown error occurred')
     process.exit(1)
   })
