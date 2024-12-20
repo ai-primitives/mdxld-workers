@@ -1,34 +1,50 @@
-# Test Failures
+# Test Failures Analysis
 
-## Version and Help Command Tests
-1. `should show version when --version flag is used`
-   - Expected console.log to be called at least once
-   - Exit code handling incorrect (throwing wrong error message)
+## CLI Test Failures
 
-2. `should show help when --help flag is used`
-   - Expected console.log to be called at least once
-   - Exit code handling incorrect (throwing wrong error message)
+1. Process Exit Error
 
-3. `should show help when no command is provided`
-   - Expected console.log to be called at least once
-   - Exit code handling incorrect (throwing wrong error message)
+   ```
+   Expected [Function] to throw error including 'process.exit unexpectedly called with "0"'
+   but got 'process.exit unexpectedly called with "1"'
+   ```
 
-## Command Implementation Tests
-4. `should have compile command`
-   - Missing console output for successful compilation
+2. LogSpy Failures
+   a. Version Flag Test
 
-5. `should have deploy-platform command`
-   - Missing console output for successful deployment
+   ```
+   Expected "log" to be called with arguments: [ "0.1.0" ]
+   Received: Number of calls: 0
+   ```
 
-6. `should have deploy-wrangler command`
-   - Missing console output for successful deployment
+   b. Help Flag Test
+
+   ```
+   Expected "log" to be called with arguments: [ StringContaining "Usage:" ]
+   Received: Number of calls: 0
+   ```
+
+   c. No Command Test
+
+   ```
+   Expected "log" to be called with arguments: [ StringContaining "Usage:" ]
+   Received: Number of calls: 0
+   ```
 
 ## Root Causes
-1. exitOverride handler not correctly distinguishing between help/version and error cases
-2. Console output not being properly triggered before exit
-3. Command implementations not logging success messages
+
+1. Commander.js exitOverride implementation not properly capturing console output
+2. Process exit handling interfering with log capture
+3. Test spy setup may not be correctly intercepting console.log calls
+
+## Current Status
+
+- Known limitation documented in TODO.md
+- Development focus shifted to core compilation features
+- CLI improvements deferred until after core functionality implementation
 
 ## Next Steps
-1. Fix exitOverride handler to properly handle different exit scenarios
-2. Ensure console output is called before any exit handling
-3. Add proper success messages to command implementations
+
+1. Continue with core MDXLD compilation implementation
+2. Return to CLI improvements after core features
+3. Consider alternative approaches to CLI output testing

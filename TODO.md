@@ -23,6 +23,7 @@
     - [ ] Add deployPlatform() function
 
 ## Documentation
+
 - [x] Create README with badges and usage examples
 - [ ] Add detailed API documentation
 - [ ] Add CLI command reference
@@ -32,6 +33,7 @@
   - [ ] Platform API deployment example
 
 ## Technical Challenges & Blockers
+
 - [ ] Cloudflare Workers Integration
   - [ ] Verify Platform API access and permissions
   - [ ] Test worker deployment process
@@ -88,6 +90,7 @@
       3. Verify mock function declarations
 
 ## Verification Requirements
+
 - [ ] Test Coverage
   - [ ] Unit tests for MDXLD compilation
   - [ ] Integration tests for worker deployment
@@ -102,7 +105,9 @@
   - [ ] Validate JSX rendering
 
 ## Deployment Status
+
 - [ ] Package Setup
+
   - [ ] Update package.json metadata
   - [ ] Configure required dependencies
     - [ ] Add @mdx-js/react

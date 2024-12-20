@@ -22,10 +22,7 @@ export interface WranglerConfig {
  * @param worker Worker code as string
  * @param options Worker deployment options
  */
-export async function deployWrangler(
-  worker: string,
-  options: WranglerConfig
-): Promise<void> {
+export async function deployWrangler(worker: string, options: WranglerConfig): Promise<void> {
   // Create temporary directory for worker files
   const tmpDir = tmpdir()
   const workerPath = join(tmpDir, `${options.name}.js`)
@@ -35,7 +32,7 @@ export async function deployWrangler(
     name: options.name,
     compatibilityDate: options.compatibilityDate ?? new Date().toISOString().split('T')[0],
     routes: options.routes,
-    env: options.env
+    env: options.env,
   }
 
   try {
@@ -48,18 +45,23 @@ name = "${fullConfig.name}"
 main = "${workerPath}"
 compatibility_date = "${fullConfig.compatibilityDate}"
 
-${fullConfig.routes ? fullConfig.routes.map(route => `routes = ["${route}"]`).join('\n') : ''}
+${fullConfig.routes ? fullConfig.routes.map((route) => `routes = ["${route}"]`).join('\n') : ''}
 
-${fullConfig.env ? '[vars]\n' + Object.entries(fullConfig.env)
-  .map(([key, value]) => `${key} = "${value}"`)
-  .join('\n') : ''}
+${
+  fullConfig.env
+    ? '[vars]\n' +
+      Object.entries(fullConfig.env)
+        .map(([key, value]) => `${key} = "${value}"`)
+        .join('\n')
+    : ''
+}
 `
     await writeFile(configPath, wranglerConfig)
 
     // Deploy using wrangler
     await execa('wrangler', ['deploy'], {
       cwd: tmpDir,
-      stdio: 'inherit'
+      stdio: 'inherit',
     })
   } catch (error) {
     throw new Error(`Failed to deploy worker with Wrangler: ${error instanceof Error ? error.message : String(error)}`)

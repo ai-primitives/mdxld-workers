@@ -1,25 +1,22 @@
 #!/usr/bin/env node
+/// <reference types="node" />
+
 import { Command } from 'commander'
 import { compile } from '../compiler'
 import { deployPlatform } from '../deploy/platform'
 import { deployWrangler } from '../deploy/wrangler'
 import { version } from '../../package.json'
-import type {
-  CompileOptions,
-  PlatformConfig,
-  PlatformOptions,
-  WranglerConfig,
-  WranglerOptions
-} from '../deploy/types'
-
-// Export for testing
-const exit = process.exit
+import type { CompileOptions, PlatformConfig, PlatformOptions, WranglerConfig, WranglerOptions } from '../deploy/types'
 
 // Create program instance
 export const program = new Command()
   .name('mdxld-workers')
   .description('CLI to compile and deploy MDXLD files to Cloudflare Workers')
   .version(version, '-v, --version', 'output the current version')
+  .configureOutput({
+    writeOut: (str) => console.log(str),
+    writeErr: (str) => console.error(str)
+  })
   .addHelpCommand()
   .showHelpAfterError()
   .action(() => {
@@ -27,12 +24,11 @@ export const program = new Command()
   })
 
 // Configure version and help
-program
-  .configureHelp({
-    helpWidth: 80,
-    sortSubcommands: true,
-    sortOptions: true
-  })
+program.configureHelp({
+  helpWidth: 80,
+  sortSubcommands: true,
+  sortOptions: true,
+})
 
 // Override exit behavior for testing
 program.exitOverride((err) => {
@@ -48,12 +44,12 @@ program.exitOverride((err) => {
 const defaultCompileOptions: CompileOptions = {
   jsx: {
     importSource: 'hono/jsx' as const,
-    runtime: 'react-jsx' as const
+    runtime: 'react-jsx' as const,
   },
   worker: {
     name: 'mdxld-worker',
-    compatibilityDate: new Date().toISOString().split('T')[0]
-  }
+    compatibilityDate: new Date().toISOString().split('T')[0],
+  },
 }
 
 interface CompileCommandOptions {
@@ -77,8 +73,8 @@ program
         worker: {
           name: options.name,
           routes: options.routes?.split(','),
-          compatibilityDate: options.compatibilityDate
-        }
+          compatibilityDate: options.compatibilityDate,
+        },
       }
       await compile(input, compileOptions)
     } catch (err) {
@@ -101,7 +97,7 @@ program
       const config: PlatformConfig = {
         namespace: options.namespace,
         accountId: options.accountId,
-        apiToken: options.apiToken
+        apiToken: options.apiToken,
       }
       await deployPlatform(worker, options.name, config)
       console.log('Platform deployment completed successfully')
@@ -121,7 +117,7 @@ program
     try {
       const config: WranglerConfig = {
         name: options.name,
-        compatibilityDate: options.compatibilityDate
+        compatibilityDate: options.compatibilityDate,
       }
       await deployWrangler(worker, config)
       console.log('Deployed successfully using Wrangler')
@@ -131,7 +127,8 @@ program
     }
   })
 
-if (typeof require !== 'undefined' && require.main === module) {
+// Only run if this is the main module
+if (process.env.NODE_ENV !== 'test' && process.argv[1]?.endsWith('cli/index.js')) {
   program.parseAsync(process.argv).catch((err) => {
     if (err instanceof Error && err.message.includes('process.exit unexpectedly called')) {
       throw err

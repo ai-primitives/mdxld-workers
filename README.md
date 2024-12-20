@@ -37,6 +37,7 @@ mdxld-workers deploy-platform --namespace my-namespace --account-id xxx
 ### Configuration
 
 worker.config.json:
+
 ```json
 {
   "jsx": {
@@ -64,20 +65,20 @@ import { compile, deploy, deployPlatform } from '@ai-primitives/mdxld-workers'
 const worker = await compile('input.mdx', {
   jsx: {
     importSource: 'hono/jsx',
-    runtime: 'react-jsx'
-  }
+    runtime: 'react-jsx',
+  },
 })
 
 // Deploy using Wrangler
 await deploy(worker, {
   name: 'my-worker',
-  routes: ['/api/*']
+  routes: ['/api/*'],
 })
 
 // Deploy using Platform API
 await deployPlatform(worker, {
   namespace: 'my-namespace',
-  accountId: 'xxx'
+  accountId: 'xxx',
 })
 ```
 

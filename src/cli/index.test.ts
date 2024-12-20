@@ -3,7 +3,7 @@ import { version } from '../../package.json'
 import type { CompileOptions } from '../deploy/types'
 
 // Setup spies before importing program
-const _exitSpy = vi.spyOn(process, 'exit').mockImplementation((code?: string | number | null | undefined): never => {
+vi.spyOn(process, 'exit').mockImplementation((code?: string | number | null | undefined): never => {
   throw new Error(`process.exit called with "${code}"`)
 }) as MockedFunction<(code?: string | number | null | undefined) => never>
 const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
@@ -13,7 +13,7 @@ vi.mock('../compiler', () => ({
   compile: vi.fn().mockImplementation(async (input: string, options: CompileOptions) => {
     console.log('Mocked compile called with:', input, options)
     return Promise.resolve(undefined)
-  })
+  }),
 }))
 
 // Import after all mocks are set up
@@ -21,11 +21,11 @@ import { program } from './index'
 
 // Mock deployment functions
 vi.mock('../deploy/platform', () => ({
-  deployPlatform: vi.fn().mockResolvedValue(undefined)
+  deployPlatform: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('../deploy/wrangler', () => ({
-  deployWrangler: vi.fn().mockResolvedValue(undefined)
+  deployWrangler: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('node:fs/promises', () => ({
@@ -33,8 +33,8 @@ vi.mock('node:fs/promises', () => ({
     readFile: vi.fn().mockResolvedValue('test content'),
     writeFile: vi.fn().mockResolvedValue(undefined),
     mkdir: vi.fn().mockResolvedValue(undefined),
-    stat: vi.fn().mockResolvedValue({ isDirectory: () => false })
-  }
+    stat: vi.fn().mockResolvedValue({ isDirectory: () => false }),
+  },
 }))
 
 describe('CLI', () => {
@@ -68,39 +68,44 @@ describe('CLI', () => {
 
     await program.parseAsync(['node', 'cli.js', 'compile', 'test.mdx'])
 
-    expect(compile).toHaveBeenCalledWith('test.mdx', expect.objectContaining({
-      jsx: expect.objectContaining({
-        importSource: 'hono/jsx',
-        runtime: 'react-jsx'
+    expect(compile).toHaveBeenCalledWith(
+      'test.mdx',
+      expect.objectContaining({
+        jsx: expect.objectContaining({
+          importSource: 'hono/jsx',
+          runtime: 'react-jsx',
+        }),
+        worker: expect.objectContaining({
+          name: 'mdxld-worker',
+          compatibilityDate: expect.any(String),
+        }),
       }),
-      worker: expect.objectContaining({
-        name: 'mdxld-worker',
-        compatibilityDate: expect.any(String)
-      })
-    }))
+    )
   })
 
   it('should deploy using platform API', async () => {
     const { deployPlatform } = await import('../deploy/platform')
 
     await program.parseAsync([
-      'node', 'cli.js', 'deploy-platform',
+      'node',
+      'cli.js',
+      'deploy-platform',
       'worker.js',
-      '--namespace', 'test',
-      '--account-id', 'test-account',
-      '--api-token', 'test-token',
-      '--name', 'test-worker'
+      '--namespace',
+      'test',
+      '--account-id',
+      'test-account',
+      '--api-token',
+      'test-token',
+      '--name',
+      'test-worker',
     ])
 
-    expect(deployPlatform).toHaveBeenCalledWith(
-      'worker.js',
-      'test-worker',
-      {
-        namespace: 'test',
-        accountId: 'test-account',
-        apiToken: 'test-token'
-      }
-    )
+    expect(deployPlatform).toHaveBeenCalledWith('worker.js', 'test-worker', {
+      namespace: 'test',
+      accountId: 'test-account',
+      apiToken: 'test-token',
+    })
     expect(logSpy).toHaveBeenCalledWith('Platform deployment completed successfully')
   })
 

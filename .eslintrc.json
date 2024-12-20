@@ -23,6 +23,8 @@
   "globals": {
     "globalThis": "readonly",
     "require": "readonly",
-    "module": "readonly"
+    "module": "readonly",
+    "__filename": "readonly",
+    "__dirname": "readonly"
   }
 }

@@ -85,20 +85,20 @@ export async function compile(source: string, options: CompileOptions): Promise<
       jsxImportSource: options.jsx.importSource,
       development: false,
       outputFormat: 'function-body',
-      providerImportSource: '@mdx-js/react'
+      providerImportSource: '@mdx-js/react',
     })
 
     // Generate worker code using template
     const workerCode = createWorkerTemplate(
       {
         ...mdxld,
-        content: String(compiledMDX)
+        content: String(compiledMDX),
       },
       {
         name: metadata.name || options.worker.name,
         routes: metadata.routes || options.worker.routes,
-        compatibilityDate: options.worker.compatibilityDate
-      }
+        compatibilityDate: options.worker.compatibilityDate,
+      },
     )
 
     // Bundle with esbuild
@@ -118,8 +118,8 @@ export async function compile(source: string, options: CompileOptions): Promise<
       external: ['__STATIC_CONTENT_MANIFEST'],
       metafile: true,
       define: {
-        'process.env.NODE_ENV': '"production"'
-      }
+        'process.env.NODE_ENV': '"production"',
+      },
     })
 
     if (!result.outputFiles?.[0]) {

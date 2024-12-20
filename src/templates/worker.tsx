@@ -1,8 +1,6 @@
 import { Hono } from 'hono'
 import { jsxRenderer } from 'hono/jsx-renderer'
 import { MDXProvider } from '@mdx-js/react'
-import { compile } from '@mdx-js/mdx'
-import * as runtime from 'react/jsx-runtime'
 import type { MDXLD } from 'mdxld'
 
 export interface WorkerOptions {
@@ -17,14 +15,9 @@ export interface WorkerEnv {
 
 export function createWorkerTemplate(mdxld: MDXLD, options: WorkerOptions): string {
   // Convert YAML-LD frontmatter $ prefix to @ prefix
-  const jsonLdData = Object.fromEntries(
-    Object.entries(mdxld.data)
-      .map(([key, value]) => [
-        key.startsWith('$') ? '@' + key.slice(1) : key,
-        value
-      ])
-  )
+  const jsonLdData = Object.fromEntries(Object.entries(mdxld.data).map(([key, value]) => [key.startsWith('$') ? '@' + key.slice(1) : key, value]))
 
+  // Create the worker code template
   return `
 import { Hono } from 'hono'
 import { jsxRenderer } from 'hono/jsx-renderer'
@@ -33,14 +26,14 @@ import * as runtime from 'react/jsx-runtime'
 
 // MDXLD content and metadata
 const mdxld = {
-  content: ${JSON.stringify(mdxld.content)},
+  content: \`${mdxld.content.replace(/`/g, '\\`')}\`,
   context: ${JSON.stringify(mdxld.context)},
   type: ${JSON.stringify(mdxld.type)},
   data: ${JSON.stringify(jsonLdData)}
 }
 
 // Initialize Hono app
-const app = new Hono<{ Bindings: WorkerEnv }>()
+const app = new Hono()
 
 // Add JSX renderer middleware
 app.use('*', jsxRenderer({
@@ -62,17 +55,6 @@ app.get('*', (c) => {
             '@context': mdxld.context,
             '@type': mdxld.type,
             ...mdxld.data
-          })
-        }}
-      />
-    </MDXProvider>
-  )
-})
-
-export default app
-`
-}
-            )
           })
         }}
       />

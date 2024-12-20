@@ -17,20 +17,16 @@ export interface PlatformConfig {
 /**
  * Deploys a worker to Cloudflare using the Platform API
  */
-export async function deployPlatform(
-  worker: string,
-  name: string,
-  config: PlatformConfig
-): Promise<void> {
+export async function deployPlatform(worker: string, name: string, config: PlatformConfig): Promise<void> {
   const url = `https://api.cloudflare.com/client/v4/accounts/${config.accountId}/workers/dispatch/namespaces/${config.namespace}/scripts/${name}`
 
   const response = await globalThis.fetch(url, {
     method: 'PUT',
     headers: {
-      'Authorization': `Bearer ${config.apiToken}`,
-      'Content-Type': 'application/javascript'
+      Authorization: `Bearer ${config.apiToken}`,
+      'Content-Type': 'application/javascript',
     },
-    body: worker
+    body: worker,
   })
 
   if (!response.ok) {

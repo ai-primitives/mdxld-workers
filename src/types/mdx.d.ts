@@ -8,8 +8,5 @@ declare module '@mdx-js/mdx' {
     providerImportSource?: string
   }
 
-  export function compile(
-    content: string,
-    options?: CompileOptions
-  ): Promise<string>
+  export function compile(content: string, options?: CompileOptions): Promise<string>
 }
