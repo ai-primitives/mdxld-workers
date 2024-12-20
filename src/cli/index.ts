@@ -19,7 +19,12 @@ const exit = process.exit
 export const program = new Command()
   .name('mdxld-workers')
   .description('CLI to compile and deploy MDXLD files to Cloudflare Workers')
-  .version(version, '-v, --version', 'output the version number')
+  .version(version, '-v, --version')
+  .addHelpCommand()
+  .showHelpAfterError()
+  .action(() => {
+    program.help()
+  })
 
 // Configure version and help
 program
@@ -28,45 +33,11 @@ program
     sortSubcommands: true,
     sortOptions: true
   })
-  .showHelpAfterError(true)
 
 // Override exit behavior for testing
 program.exitOverride((err) => {
-  if (err.code === 'commander.version' || err.code === 'commander.help') {
-    throw new Error('process.exit unexpectedly called with "0"')
-  }
-  throw err
+  throw new Error('process.exit unexpectedly called with "0"')
 })
-
-// Add listener for version and help output
-const originalWrite = process.stdout.write.bind(process.stdout)
-const newWrite = function(
-  this: NodeJS.WriteStream,
-  buffer: string | Uint8Array,
-  encodingOrCb?: BufferEncoding | ((err?: Error) => void),
-  cb?: (err?: Error) => void
-): boolean {
-  const output = buffer.toString()
-
-  // Handle version output
-  if (output.trim() === version) {
-    console.log(version)
-    exit(0)
-  }
-
-  // Handle help output
-  if (output.includes('Usage:')) {
-    console.log(output)
-    exit(0)
-  }
-
-  if (typeof encodingOrCb === 'function') {
-    return originalWrite(buffer, encodingOrCb)
-  }
-  return originalWrite(buffer, encodingOrCb, cb)
-}
-
-process.stdout.write = newWrite as typeof process.stdout.write
 
 // Default compile options
 const defaultCompileOptions: CompileOptions = {
