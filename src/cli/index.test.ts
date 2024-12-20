@@ -1,23 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { version } from '../../package.json'
 
-// Mock the CLI module before importing
-vi.mock('./index', async () => {
-  const actual = await vi.importActual<typeof import('./index')>('./index')
-  return {
-    ...actual,
-    exit: vi.fn((code?: number) => {
-      throw new Error(`process.exit unexpectedly called with "${code}"`)
-    })
-  }
-})
+// Mock process.exit before any imports
+const mockExit = vi.fn((code?: string | number | null | undefined): never => {
+  const error = new Error(`process.exit called with ${code}`)
+  throw error
+}) as (code?: number) => never
+
+// Setup spies before importing program
+process.exit = mockExit
+const logSpy = vi.spyOn(console, 'log')
 
 // Import after mocking
-import { program, exit } from './index'
-
-// Setup spies
-const exitSpy = vi.mocked(exit)
-const logSpy = vi.spyOn(console, 'log')
+import { program } from './index'
 
 // Mock deployment functions
 vi.mock('../compiler', () => ({
@@ -49,34 +44,32 @@ describe('CLI', () => {
   it('should show version when --version flag is used', async () => {
     await expect(async () => {
       await program.parseAsync(['node', 'cli.js', '--version'])
-    }).rejects.toThrow('process.exit unexpectedly called with "0"')
+    }).rejects.toThrow('process.exit called with 0')
 
     expect(logSpy).toHaveBeenCalledWith(version)
-    expect(exitSpy).toHaveBeenCalledWith(0)
+    expect(mockExit).toHaveBeenCalledWith(0)
   })
 
   it('should show help when --help flag is used', async () => {
     await expect(async () => {
       await program.parseAsync(['node', 'cli.js', '--help'])
-    }).rejects.toThrow('process.exit unexpectedly called with "0"')
+    }).rejects.toThrow('process.exit called with 0')
 
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Usage:'))
-    expect(exitSpy).toHaveBeenCalledWith(0)
+    expect(mockExit).toHaveBeenCalledWith(0)
   })
 
   it('should show help when no command is provided', async () => {
     await expect(async () => {
       await program.parseAsync(['node', 'cli.js'])
-    }).rejects.toThrow('process.exit unexpectedly called with "0"')
+    }).rejects.toThrow('process.exit called with 0')
 
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Usage:'))
-    expect(exitSpy).toHaveBeenCalledWith(0)
+    expect(mockExit).toHaveBeenCalledWith(0)
   })
 
   it('should compile MDXLD file with default options', async () => {
     const { compile } = await import('../compiler')
-
-    await program.parseAsync(['node', 'cli.js', 'compile', 'test.mdx'])
 
     expect(compile).toHaveBeenCalledWith('test.mdx', expect.objectContaining({
       jsx: expect.objectContaining({

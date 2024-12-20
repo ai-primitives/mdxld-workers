@@ -7,8 +7,9 @@ import type { PlatformConfig } from '../deploy/types'
 import { version } from '../../package.json'
 
 // Export for testing
-export const exit = (code?: number): never => {
-  throw new Error(`process.exit unexpectedly called with "${code}"`)
+export const exit = (code: number): never => {
+  process.exit(code)
+  throw new Error('Unreachable') // TypeScript needs this
 }
 
 // Create and configure program
@@ -20,14 +21,13 @@ export const program = new Command()
 
 // Override exit behavior for testing
 program.exitOverride((err) => {
+  const code = err.exitCode || 0
   if (err.code === 'commander.help' || err.code === 'commander.helpDisplayed') {
     console.log(program.helpInformation())
-    exit(0)
-    throw new Error('process.exit unexpectedly called with "0"')
+    process.exit(code)
   } else if (err.code === 'commander.version') {
     console.log(version)
-    exit(0)
-    throw new Error('process.exit unexpectedly called with "0"')
+    process.exit(code)
   }
   throw err
 })
