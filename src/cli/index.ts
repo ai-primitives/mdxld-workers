@@ -37,13 +37,28 @@ program.exitOverride((err) => {
   throw new Error(`process.exit unexpectedly called with "${err.exitCode}"`)
 })
 
-// Parse arguments
-if (typeof require !== 'undefined' && typeof module !== 'undefined' && require.main === module) {
-  program.parseAsync(process.argv).catch((err) => {
-    console.error(err instanceof Error ? err.message : 'An unknown error occurred')
-    process.exit(1)
-  })
+// Handle version and help output
+const helpText = () => {
+  const text = program.helpInformation()
+  console.log(text)
+  return text
 }
+
+program
+  .on('option:version', () => {
+    console.log(version)
+    exit(0)
+  })
+  .on('--help', () => {
+    helpText()
+    exit(0)
+  })
+
+// Default action when no command is provided
+program.action(() => {
+  helpText()
+  exit(0)
+})
 
 // Default compile options
 const defaultCompileOptions: CompileOptions = {
@@ -133,7 +148,7 @@ program
   })
 
 // Run CLI
-if (typeof require !== 'undefined' && typeof module !== 'undefined' && require.main === module) {
+if (typeof require !== 'undefined' && require.main === module) {
   program.parseAsync(process.argv).catch((err) => {
     console.error(err instanceof Error ? err.message : 'An unknown error occurred')
     exit(1)
