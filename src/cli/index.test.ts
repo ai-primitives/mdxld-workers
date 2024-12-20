@@ -1,17 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { version } from '../../package.json'
 
-// Mock process.exit before any imports
-const mockExit = vi.fn((code?: string | number | null | undefined): never => {
-  const error = new Error(`process.exit called with ${code}`)
-  throw error
-}) as (code?: number) => never
-
 // Setup spies before importing program
-process.exit = mockExit
-const logSpy = vi.spyOn(console, 'log')
+const exitSpy = vi.spyOn(process, 'exit').mockImplementation(function mockExit(code?: number | string | null | undefined): never {
+  throw new Error(`process.exit called with ${code}`)
+})
+const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
-// Import after mocking
+// Import after all mocks are set up
 import { program } from './index'
 
 // Mock deployment functions
@@ -47,7 +43,7 @@ describe('CLI', () => {
     }).rejects.toThrow('process.exit called with 0')
 
     expect(logSpy).toHaveBeenCalledWith(version)
-    expect(mockExit).toHaveBeenCalledWith(0)
+    expect(exitSpy).toHaveBeenCalledWith(0)
   })
 
   it('should show help when --help flag is used', async () => {
@@ -56,7 +52,7 @@ describe('CLI', () => {
     }).rejects.toThrow('process.exit called with 0')
 
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Usage:'))
-    expect(mockExit).toHaveBeenCalledWith(0)
+    expect(exitSpy).toHaveBeenCalledWith(0)
   })
 
   it('should show help when no command is provided', async () => {
@@ -65,7 +61,7 @@ describe('CLI', () => {
     }).rejects.toThrow('process.exit called with 0')
 
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Usage:'))
-    expect(mockExit).toHaveBeenCalledWith(0)
+    expect(exitSpy).toHaveBeenCalledWith(0)
   })
 
   it('should compile MDXLD file with default options', async () => {
