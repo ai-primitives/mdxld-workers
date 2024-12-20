@@ -50,20 +50,27 @@ const defaultCompileOptions: CompileOptions = {
   }
 }
 
+interface CompileCommandOptions {
+  name: string
+  routes?: string
+  compatibilityDate?: string
+}
+
 program
   .command('compile')
   .argument('<input>', 'Input MDXLD file')
   .option('--name <name>', 'Worker name', defaultCompileOptions.worker.name)
-  .option('--routes <routes...>', 'Worker routes')
+  .option('--routes <routes>', 'Worker routes (comma-separated)')
+  .option('--compatibility-date <date>', 'Worker compatibility date')
   .description('Compile MDXLD file to Cloudflare Worker')
-  .action(async (input: string, options: CompileOptions) => {
+  .action(async (input: string, options: CompileCommandOptions) => {
     try {
       const compileOptions: CompileOptions = {
-        ...defaultCompileOptions,
+        jsx: defaultCompileOptions.jsx,
         worker: {
-          ...defaultCompileOptions.worker,
           name: options.name,
-          routes: options.routes
+          routes: options.routes?.split(','),
+          compatibilityDate: options.compatibilityDate ?? defaultCompileOptions.worker.compatibilityDate
         }
       }
       await compile(input, compileOptions)
