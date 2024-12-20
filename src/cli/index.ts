@@ -19,15 +19,20 @@ export const program = new Command()
   .version(version, '-v, --version')
   .helpOption('-h, --help')
 
+// Show help by default
+program.action(() => {
+  program.help()
+})
+
 // Override exit behavior for testing
 program.exitOverride((err) => {
-  const code = err.exitCode || 0
-  if (err.code === 'commander.help' || err.code === 'commander.helpDisplayed') {
-    console.log(program.helpInformation())
-    process.exit(code)
-  } else if (err.code === 'commander.version') {
-    console.log(version)
-    process.exit(code)
+  if (err.code === 'commander.help' || err.code === 'commander.helpDisplayed' || err.code === 'commander.version') {
+    if (err.code === 'commander.version') {
+      console.log(version)
+    } else {
+      console.log(program.helpInformation())
+    }
+    process.exit(0)
   }
   throw err
 })

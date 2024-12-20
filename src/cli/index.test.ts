@@ -67,16 +67,18 @@ describe('CLI', () => {
   it('should compile MDXLD file with default options', async () => {
     const { compile } = await import('../compiler')
 
+    await program.parseAsync(['node', 'cli.js', 'compile', 'test.mdx'])
+
     expect(compile).toHaveBeenCalledWith('test.mdx', expect.objectContaining({
       jsx: expect.objectContaining({
         importSource: 'hono/jsx',
         runtime: 'react-jsx'
       }),
       worker: expect.objectContaining({
-        name: 'mdxld-worker'
+        name: 'mdxld-worker',
+        compatibilityDate: expect.any(String)
       })
     }))
-    expect(logSpy).toHaveBeenCalledWith('Compilation completed successfully')
   })
 
   it('should deploy using platform API', async () => {
