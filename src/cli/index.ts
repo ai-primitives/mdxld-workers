@@ -8,7 +8,7 @@ import { version } from '../../package.json'
 
 // Export for testing
 export const exit = (code?: number): never => {
-  process.exit(code)
+  throw new Error(`process.exit unexpectedly called with "${code}"`)
 }
 
 // Create and configure program
@@ -17,16 +17,20 @@ export const program = new Command()
   .description('CLI to compile and deploy MDXLD files to Cloudflare Workers')
   .version(version, '-v, --version')
   .helpOption('-h, --help')
-  .exitOverride((err) => {
-    if (err.code === 'commander.help' || err.code === 'commander.helpDisplayed') {
-      console.log(program.helpInformation())
-      exit(0)
-    } else if (err.code === 'commander.version') {
-      console.log(version)
-      exit(0)
-    }
-    exit(1)
-  })
+
+// Override exit behavior for testing
+program.exitOverride()
+
+// Handle help and version manually
+program.on('option:help', () => {
+  console.log(program.helpInformation())
+  exit(0)
+})
+
+program.on('option:version', () => {
+  console.log(version)
+  exit(0)
+})
 
 // Default compile options
 const defaultCompileOptions: CompileOptions = {
