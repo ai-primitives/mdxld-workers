@@ -1,6 +1,5 @@
 import type { MDXLD } from 'mdxld'
 import { parse } from 'mdxld'
-import { parse as parseAST } from 'mdxld/ast'
 import * as esbuild from 'esbuild'
 import { createWorkerTemplate } from '../templates/worker.js'
 

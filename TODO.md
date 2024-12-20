@@ -36,6 +36,8 @@
   - [ ] Verify Platform API access and permissions
   - [ ] Test worker deployment process
   - [ ] Validate TypeScript configuration compatibility
+    - [x] Add DOM lib for fetch API support
+    - [x] Configure JSX for Hono compatibility
 - [ ] MDXLD Processing
   - [ ] Ensure proper YAML-LD metadata handling
   - [ ] Verify JSX transformation accuracy

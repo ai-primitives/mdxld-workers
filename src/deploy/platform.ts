@@ -1,4 +1,4 @@
-import type { MDXLD } from 'mdxld'
+// Platform API deployment utilities
 
 /**
  * Platform API configuration
