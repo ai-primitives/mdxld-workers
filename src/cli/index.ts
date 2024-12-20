@@ -31,16 +31,19 @@ program
   .name('mdxld-workers')
   .description('CLI to compile and deploy MDXLD files to Cloudflare Workers')
   .version(version, '-V, --version', 'output the version number')
-  .showHelpAfterError()
-  .addHelpCommand()
-  .showSuggestionAfterError()
+
+// Override exit behavior for help and version commands
+program.exitOverride((err) => {
+  if (err.code === 'commander.helpDisplayed' || err.code === 'commander.version') {
+    process.exit(0)
+  }
+  throw err
+})
 
 // Show help by default if no command is provided
-program.hook('preAction', () => {
-  if (!process.argv.slice(2).length) {
-    program.help()
-  }
-})
+if (!process.argv.slice(2).length) {
+  program.help()
+}
 
 program
   .command('compile')
