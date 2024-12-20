@@ -19,8 +19,8 @@ const exit = process.exit
 export const program = new Command()
   .name('mdxld-workers')
   .description('CLI to compile and deploy MDXLD files to Cloudflare Workers')
-  .version(version, '-v, --version')
-  .helpOption('-h, --help')
+  .version(version, '-v, --version', 'output the version number')
+  .helpOption('-h, --help', 'display help for command')
 
 // Show help by default when no command is provided
 program
@@ -37,26 +37,23 @@ program.exitOverride((err) => {
   throw new Error(`process.exit unexpectedly called with "${err.exitCode}"`)
 })
 
-// Handle version and help output
-const helpText = () => {
-  const text = program.helpInformation()
-  console.log(text)
-  return text
-}
+// Handle version output
+program.on('option:version', () => {
+  console.log(version)
+  exit(0)
+})
 
-program
-  .on('option:version', () => {
-    console.log(version)
-    exit(0)
-  })
-  .on('--help', () => {
-    helpText()
-    exit(0)
-  })
+// Handle help output
+program.on('--help', () => {
+  const helpText = program.helpInformation()
+  console.log(helpText)
+  exit(0)
+})
 
 // Default action when no command is provided
 program.action(() => {
-  helpText()
+  const helpText = program.helpInformation()
+  console.log(helpText)
   exit(0)
 })
 
