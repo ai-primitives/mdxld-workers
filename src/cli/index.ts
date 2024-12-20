@@ -33,21 +33,16 @@ program
 
 // Override exit behavior for testing
 program.exitOverride((err) => {
-  if (err.code === 'commander.version') {
-    console.log(version)
-    process.exit(0)
-  } else if (err.code === 'commander.help' || err.code === 'commander.helpDisplayed') {
-    console.log(program.helpInformation())
-    process.exit(0)
-  }
-  throw err
+  // Always throw with consistent error message format
+  throw new Error(`process.exit unexpectedly called with "${err.exitCode}"`)
 })
 
 // Parse arguments
-if (require.main === module) {
-  program.parse(process.argv)
-} else {
-  program.parse()
+if (typeof require !== 'undefined' && typeof module !== 'undefined' && require.main === module) {
+  program.parseAsync(process.argv).catch((err) => {
+    console.error(err instanceof Error ? err.message : 'An unknown error occurred')
+    process.exit(1)
+  })
 }
 
 // Default compile options
