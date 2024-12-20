@@ -4,7 +4,13 @@ import { compile } from '../compiler'
 import { deployPlatform } from '../deploy/platform'
 import { deployWrangler } from '../deploy/wrangler'
 import { version } from '../../package.json'
-import type { CompileOptions, PlatformConfig, PlatformOptions, WranglerOptions, WranglerConfig, WorkerConfig } from '../deploy/types'
+import type {
+  CompileOptions,
+  PlatformConfig,
+  PlatformOptions,
+  WranglerConfig,
+  WranglerOptions
+} from '../deploy/types'
 
 // Export for testing
 const exit = process.exit
