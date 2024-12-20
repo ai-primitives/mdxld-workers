@@ -27,12 +27,11 @@ program
 
 // Override exit behavior for testing
 program.exitOverride((err) => {
-  if (!err.code || err.code === 'commander.help' || err.code === 'commander.helpDisplayed' || err.code === 'commander.version') {
-    if (err.code === 'commander.version') {
-      console.log(version)
-    } else {
-      console.log(program.helpInformation())
-    }
+  if (err.code === 'commander.version') {
+    console.log(version)
+    exit(0)
+  } else if (err.code === 'commander.help' || err.code === 'commander.helpDisplayed') {
+    console.log(program.helpInformation())
     exit(0)
   }
   throw err
