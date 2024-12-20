@@ -17,7 +17,8 @@
   },
   "plugins": ["@typescript-eslint"],
   "rules": {
-    "no-undef": "error"
+    "no-undef": "error",
+    "@typescript-eslint/no-unused-vars": ["error", { "varsIgnorePattern": "^_" }]
   },
   "globals": {
     "globalThis": "readonly",
