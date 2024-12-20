@@ -1,6 +1,7 @@
 import type { MDXLD } from 'mdxld'
 import { parse } from 'mdxld'
 import * as esbuild from 'esbuild'
+import { compile as compileMDX } from '@mdx-js/mdx'
 import { createWorkerTemplate } from '../templates/worker.js'
 
 /**
@@ -77,12 +78,28 @@ export async function compile(source: string, options: CompileOptions): Promise<
     // Extract worker metadata
     const metadata = extractWorkerMetadata(mdxld)
 
-    // Generate worker code using template
-    const workerCode = createWorkerTemplate(mdxld, {
-      name: metadata.name || options.worker.name,
-      routes: metadata.routes || options.worker.routes,
-      compatibilityDate: options.worker.compatibilityDate
+    // Compile MDX content with proper JSX configuration
+    const compiledMDX = await compileMDX(mdxld.content, {
+      jsx: true,
+      jsxRuntime: 'automatic',
+      jsxImportSource: options.jsx.importSource,
+      development: false,
+      outputFormat: 'function-body',
+      providerImportSource: '@mdx-js/react'
     })
+
+    // Generate worker code using template
+    const workerCode = createWorkerTemplate(
+      {
+        ...mdxld,
+        content: String(compiledMDX)
+      },
+      {
+        name: metadata.name || options.worker.name,
+        routes: metadata.routes || options.worker.routes,
+        compatibilityDate: options.worker.compatibilityDate
+      }
+    )
 
     // Bundle with esbuild
     const result = await esbuild.build({
@@ -100,6 +117,9 @@ export async function compile(source: string, options: CompileOptions): Promise<
       jsxImportSource: options.jsx.importSource,
       external: ['__STATIC_CONTENT_MANIFEST'],
       metafile: true,
+      define: {
+        'process.env.NODE_ENV': '"production"'
+      }
     })
 
     if (!result.outputFiles?.[0]) {
@@ -108,6 +128,7 @@ export async function compile(source: string, options: CompileOptions): Promise<
 
     return result.outputFiles[0].text
   } catch (error) {
-    throw new Error(`Failed to compile MDXLD worker: ${error instanceof Error ? error.message : String(error)}`)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    throw new Error(`Failed to compile MDXLD worker: ${errorMessage}`)
   }
 }

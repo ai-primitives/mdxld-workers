@@ -1,6 +1,8 @@
 import { Hono } from 'hono'
 import { jsxRenderer } from 'hono/jsx-renderer'
 import { MDXProvider } from '@mdx-js/react'
+import { compile } from '@mdx-js/mdx'
+import * as runtime from 'react/jsx-runtime'
 import type { MDXLD } from 'mdxld'
 
 export interface WorkerOptions {
@@ -14,13 +16,28 @@ export interface WorkerEnv {
 }
 
 export function createWorkerTemplate(mdxld: MDXLD, options: WorkerOptions): string {
+  // Convert YAML-LD frontmatter $ prefix to @ prefix
+  const jsonLdData = Object.fromEntries(
+    Object.entries(mdxld.data)
+      .map(([key, value]) => [
+        key.startsWith('$') ? '@' + key.slice(1) : key,
+        value
+      ])
+  )
+
   return `
 import { Hono } from 'hono'
 import { jsxRenderer } from 'hono/jsx-renderer'
 import { MDXProvider } from '@mdx-js/react'
+import * as runtime from 'react/jsx-runtime'
 
 // MDXLD content and metadata
-const mdxld = ${JSON.stringify(mdxld, null, 2)}
+const mdxld = {
+  content: ${JSON.stringify(mdxld.content)},
+  context: ${JSON.stringify(mdxld.context)},
+  type: ${JSON.stringify(mdxld.type)},
+  data: ${JSON.stringify(jsonLdData)}
+}
 
 // Initialize Hono app
 const app = new Hono<{ Bindings: WorkerEnv }>()
@@ -37,10 +54,7 @@ app.get('*', (c) => {
 
   return c.render(
     <MDXProvider>
-      {/* MDX content will be transformed and injected here */}
-      <div data-mdxld-content>
-        {mdxld.content}
-      </div>
+      <div data-mdxld-content dangerouslySetInnerHTML={{ __html: mdxld.content }} />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -48,6 +62,17 @@ app.get('*', (c) => {
             '@context': mdxld.context,
             '@type': mdxld.type,
             ...mdxld.data
+          })
+        }}
+      />
+    </MDXProvider>
+  )
+})
+
+export default app
+`
+}
+            )
           })
         }}
       />
