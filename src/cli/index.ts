@@ -19,14 +19,18 @@ export const program = new Command()
   .version(version, '-v, --version')
   .helpOption('-h, --help')
 
-// Show help by default
-program.action(() => {
-  program.help()
-})
+// Show help by default when no command is provided
+program
+  .configureHelp({
+    helpWidth: 80,
+    sortSubcommands: true,
+    sortOptions: true
+  })
+  .showHelpAfterError(true)
 
 // Override exit behavior for testing
 program.exitOverride((err) => {
-  if (err.code === 'commander.help' || err.code === 'commander.helpDisplayed' || err.code === 'commander.version') {
+  if (!err.code || err.code === 'commander.help' || err.code === 'commander.helpDisplayed' || err.code === 'commander.version') {
     if (err.code === 'commander.version') {
       console.log(version)
     } else {

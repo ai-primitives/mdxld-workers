@@ -7,14 +7,18 @@ const exitSpy = vi.spyOn(process, 'exit').mockImplementation(function mockExit(c
 })
 const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
+// Mock compiler module before importing program
+vi.mock('../compiler', () => ({
+  compile: vi.fn().mockImplementation(async (input: string, options: any) => {
+    console.log('Mocked compile called with:', input, options)
+    return Promise.resolve(undefined)
+  })
+}))
+
 // Import after all mocks are set up
 import { program } from './index'
 
 // Mock deployment functions
-vi.mock('../compiler', () => ({
-  compile: vi.fn().mockResolvedValue('compiled-worker')
-}))
-
 vi.mock('../deploy/platform', () => ({
   deployPlatform: vi.fn().mockResolvedValue(undefined)
 }))
