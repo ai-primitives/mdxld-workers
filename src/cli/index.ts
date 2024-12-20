@@ -1,34 +1,18 @@
 #!/usr/bin/env node
-import { Command, CommanderError } from 'commander'
+import { Command } from 'commander'
 import { compile } from '../compiler'
 import { deployPlatform } from '../deploy/platform'
 import { deployWrangler } from '../deploy/wrangler'
 import type { PlatformConfig } from '../deploy/types'
-import fs from 'node:fs/promises'
-import path from 'node:path'
 import { version } from '../../package.json'
 
-interface CompileOptions {
-  output: string
-  config?: string
-}
+// Export for testing
+export let exit = process.exit
 
-interface DeployPlatformOptions {
-  name: string
-  accountId: string
-  namespace: string
-  apiToken: string
-}
-
-interface DeployWranglerOptions {
-  name: string
-  config?: string
-}
-
-// Mock process.exit in test environment
+// Configure process.exit for testing
 if (process.env.NODE_ENV === 'test') {
-  process.exit = ((code?: number) => {
-    throw new Error(`process.exit unexpectedly called with "${code}"`)
+  exit = ((code?: number) => {
+    throw new Error(`process.exit called with "${code}"`)
   }) as never
 }
 
@@ -41,31 +25,45 @@ program
   .version(version, '-v, --version')
   .helpOption('-h, --help')
 
+// Override exit behavior for testing
+program.exitOverride((err) => {
+  if (err.code === 'commander.help' || err.code === 'commander.helpDisplayed') {
+    console.log(program.helpInformation())
+    exit(0)
+    return
+  }
+  if (err.code === 'commander.version') {
+    console.log(version)
+    exit(0)
+    return
+  }
+  throw err
+})
+
 // Add commands
 program
   .command('compile')
   .argument('<input>', 'Input MDXLD file')
   .description('Compile MDXLD file to Cloudflare Worker')
-  .option('-o, --output <dir>', 'output directory', 'dist')
-  .action(async (input, options) => {
+  .action(async (input: string) => {
     try {
-      await compile(input, options)
+      await compile(input)
       console.log('Compilation completed successfully')
-    } catch (error) {
-      console.error('Compilation failed:', error)
-      process.exit(1)
+    } catch (err) {
+      console.error(err instanceof Error ? err.message : 'Compilation failed')
+      exit(1)
     }
   })
 
 program
   .command('deploy-platform')
   .argument('<worker>', 'Worker file to deploy')
-  .requiredOption('--name <name>', 'worker name')
-  .requiredOption('--account-id <id>', 'Cloudflare account ID')
-  .requiredOption('--namespace <namespace>', 'worker namespace')
+  .requiredOption('--name <name>', 'Worker name')
+  .requiredOption('--account-id <accountId>', 'Cloudflare account ID')
+  .requiredOption('--namespace <namespace>', 'Worker namespace')
   .requiredOption('--api-token <token>', 'Cloudflare API token')
   .description('Deploy worker using Cloudflare Platform API')
-  .action(async (worker, options) => {
+  .action(async (worker: string, options: any) => {
     try {
       const config: PlatformConfig = {
         accountId: options.accountId,
@@ -74,47 +72,31 @@ program
       }
       await deployPlatform(worker, options.name, config)
       console.log('Deployed successfully using Platform API')
-    } catch (error) {
-      console.error('Platform deployment failed:', error)
-      process.exit(1)
+    } catch (err) {
+      console.error(err instanceof Error ? err.message : 'Deployment failed')
+      exit(1)
     }
   })
 
 program
   .command('deploy-wrangler')
   .argument('<worker>', 'Worker file to deploy')
-  .requiredOption('--name <name>', 'worker name')
+  .requiredOption('--name <name>', 'Worker name')
   .description('Deploy worker using Wrangler')
-  .action(async (worker, options) => {
+  .action(async (worker: string, options: any) => {
     try {
-      await deployWrangler(worker, options)
+      await deployWrangler(worker, options.name)
       console.log('Deployed successfully using Wrangler')
-    } catch (error) {
-      console.error('Wrangler deployment failed:', error)
-      process.exit(1)
+    } catch (err) {
+      console.error(err instanceof Error ? err.message : 'Deployment failed')
+      exit(1)
     }
   })
-
-// Handle help and version commands
-program.exitOverride()
 
 // Run CLI
 if (require.main === module) {
   program.parseAsync(process.argv).catch((err) => {
-    if (err instanceof CommanderError) {
-      if (err.code === 'commander.help' || err.code === 'commander.helpDisplayed') {
-        console.log(program.helpInformation())
-        process.exit(0)
-      }
-      if (err.code === 'commander.version') {
-        console.log(version)
-        process.exit(0)
-      }
-      console.error(err.message)
-      process.exit(err.exitCode ?? 1)
-    } else {
-      console.error(err instanceof Error ? err.message : 'An unknown error occurred')
-      process.exit(1)
-    }
+    console.error(err instanceof Error ? err.message : 'An unknown error occurred')
+    exit(1)
   })
 }

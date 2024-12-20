@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { program } from './index'
+import { program, exit } from './index'
 
 // Mock dependencies before importing tested module
 vi.mock('../compiler', () => ({
@@ -24,14 +24,13 @@ vi.mock('node:fs/promises', () => ({
 }))
 
 describe('CLI', () => {
-  // Mock process.exit to prevent tests from terminating and track exit codes
-  const mockExit = vi.spyOn(process, 'exit').mockImplementation((code) => {
-    throw new Error(`process.exit unexpectedly called with "${code}"`)
-  })
+  const mockExit = vi.fn()
 
   beforeEach(() => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
     vi.spyOn(console, 'error').mockImplementation(() => {})
+    // Replace the exit function with our mock
+    vi.stubGlobal('exit', mockExit)
     mockExit.mockClear()
   })
 
@@ -44,7 +43,7 @@ describe('CLI', () => {
 
     await expect(async () => {
       await program.parseAsync(['--version'])
-    }).rejects.toThrow('process.exit unexpectedly called with "0"')
+    }).rejects.toThrow('process.exit called with "0"')
 
     expect(consoleSpy).toHaveBeenCalled()
     expect(mockExit).toHaveBeenCalledWith(0)
@@ -55,7 +54,7 @@ describe('CLI', () => {
 
     await expect(async () => {
       await program.parseAsync(['--help'])
-    }).rejects.toThrow('process.exit unexpectedly called with "0"')
+    }).rejects.toThrow('process.exit called with "0"')
 
     expect(consoleSpy).toHaveBeenCalled()
     expect(mockExit).toHaveBeenCalledWith(0)
@@ -66,7 +65,7 @@ describe('CLI', () => {
 
     await expect(async () => {
       await program.parseAsync([])
-    }).rejects.toThrow('process.exit unexpectedly called with "0"')
+    }).rejects.toThrow('process.exit called with "0"')
 
     expect(consoleSpy).toHaveBeenCalled()
     expect(mockExit).toHaveBeenCalledWith(0)
