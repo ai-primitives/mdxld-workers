@@ -4,7 +4,7 @@ import { compile, type CompileOptions } from '../compiler'
 import { deployPlatform } from '../deploy/platform'
 import { deployWrangler } from '../deploy/wrangler'
 import { version } from '../../package.json'
-import type { PlatformConfig, PlatformOptions, WranglerOptions } from '../deploy/types'
+import type { PlatformConfig, PlatformOptions, WranglerOptions, WranglerConfig } from '../deploy/types'
 
 // Export for testing
 export const exit = (code: number): never => {
@@ -102,12 +102,19 @@ program
 
 program
   .command('deploy-wrangler')
-  .argument('<worker>', 'Worker file to deploy')
+  .argument('<worker>', 'Worker file or directory')
   .requiredOption('--name <name>', 'Worker name')
+  .option('--routes <routes>', 'Worker routes (comma-separated)')
+  .option('--compatibility-date <date>', 'Worker compatibility date')
   .description('Deploy worker using Wrangler')
-  .action(async (worker: string, options: WranglerOptions) => {
+  .action(async (worker: string, cmdOptions: WranglerOptions) => {
     try {
-      await deployWrangler(worker, options.name)
+      const config: WranglerConfig = {
+        name: cmdOptions.name,
+        routes: cmdOptions.routes?.split(','),
+        compatibilityDate: cmdOptions.compatibilityDate ?? new Date().toISOString().split('T')[0]
+      }
+      await deployWrangler(worker, config)
       console.log('Deployed successfully using Wrangler')
     } catch (err) {
       console.error(err instanceof Error ? err.message : 'Deployment failed')

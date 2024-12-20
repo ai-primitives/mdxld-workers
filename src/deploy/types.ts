@@ -28,5 +28,13 @@ export interface PlatformOptions {
 
 export interface WranglerOptions {
   name: string
+  routes?: string
+  compatibilityDate?: string
+}
+
+export interface WranglerConfig {
+  name: string
   routes?: string[]
+  compatibilityDate: string
+  env?: Record<string, string>
 }

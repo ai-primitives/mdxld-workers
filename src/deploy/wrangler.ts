@@ -20,24 +20,22 @@ export interface WranglerConfig {
 /**
  * Deploys a worker using Wrangler CLI
  * @param worker Worker code as string
- * @param name Worker name
- * @param config Optional Wrangler configuration
+ * @param options Worker deployment options
  */
 export async function deployWrangler(
   worker: string,
-  name: string,
-  config?: Partial<WranglerConfig>
+  options: WranglerConfig
 ): Promise<void> {
   // Create temporary directory for worker files
   const tmpDir = tmpdir()
-  const workerPath = join(tmpDir, `${name}.js`)
+  const workerPath = join(tmpDir, `${options.name}.js`)
   const configPath = join(tmpDir, 'wrangler.toml')
 
   const fullConfig: WranglerConfig = {
-    name,
-    compatibilityDate: config?.compatibilityDate ?? new Date().toISOString().split('T')[0],
-    routes: config?.routes,
-    env: config?.env
+    name: options.name,
+    compatibilityDate: options.compatibilityDate ?? new Date().toISOString().split('T')[0],
+    routes: options.routes,
+    env: options.env
   }
 
   try {
