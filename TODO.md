@@ -56,16 +56,29 @@
     - Location: src/cli/index.test.ts
     - Cause: Commander.js calling process.exit() in test environment
     - Solution:
-      1. Properly mock process.exit with code tracking
-      2. Use expect().rejects.toThrow() for exit assertions
-      3. Verify exit codes in test expectations
+      1. Update error message format to match test expectations
+      2. Replace process.exit() with process.exitCode in CLI handlers
+      3. Remove unnecessary { from: 'user' } from parseAsync calls
     - Implementation:
       ```typescript
+      // Test implementation
       const mockExit = vi.spyOn(process, 'exit')
         .mockImplementation((code) => {
-          throw new Error(`Process.exit called with code ${code}`)
+          throw new Error(`process.exit unexpectedly called with "${code}"`)
         })
+
+      // CLI error handling
+      catch (error) {
+        console.error('Error:', error)
+        process.exitCode = 1
+        return
+      }
       ```
+    - Reproduction Steps:
+      1. Run `pnpm test`
+      2. Check error in src/cli/index.test.ts
+      3. Verify process.exit mock implementation
+      4. Confirm error message format matches expectations
   - [x] Vitest Module Mocking Error (Resolved)
     - Error: "ReferenceError: mockCompile is not defined"
     - Location: src/cli/index.test.ts:2:64

@@ -26,7 +26,7 @@ vi.mock('node:fs/promises', () => ({
 describe('CLI', () => {
   // Mock process.exit to prevent tests from terminating and track exit codes
   const mockExit = vi.spyOn(process, 'exit').mockImplementation((code) => {
-    throw new Error(`Process.exit called with code ${code}`)
+    throw new Error(`process.exit unexpectedly called with "${code}"`)
   })
 
   beforeEach(() => {
@@ -43,8 +43,8 @@ describe('CLI', () => {
     const consoleSpy = vi.spyOn(console, 'log')
 
     await expect(async () => {
-      await program.parseAsync(['node', 'test', '--version'], { from: 'user' })
-    }).rejects.toThrow('Process.exit called with code 0')
+      await program.parseAsync(['node', 'test', '--version'])
+    }).rejects.toThrow('process.exit unexpectedly called with "0"')
 
     expect(consoleSpy).toHaveBeenCalled()
     expect(mockExit).toHaveBeenCalledWith(0)
@@ -54,8 +54,8 @@ describe('CLI', () => {
     const consoleSpy = vi.spyOn(console, 'log')
 
     await expect(async () => {
-      await program.parseAsync(['node', 'test', '--help'], { from: 'user' })
-    }).rejects.toThrow('Process.exit called with code 0')
+      await program.parseAsync(['node', 'test', '--help'])
+    }).rejects.toThrow('process.exit unexpectedly called with "0"')
 
     expect(consoleSpy).toHaveBeenCalled()
     expect(mockExit).toHaveBeenCalledWith(0)
@@ -65,8 +65,8 @@ describe('CLI', () => {
     const consoleSpy = vi.spyOn(console, 'log')
 
     await expect(async () => {
-      await program.parseAsync(['node', 'test'], { from: 'user' })
-    }).rejects.toThrow('Process.exit called with code 0')
+      await program.parseAsync(['node', 'test'])
+    }).rejects.toThrow('process.exit unexpectedly called with "0"')
 
     expect(consoleSpy).toHaveBeenCalled()
     expect(mockExit).toHaveBeenCalledWith(0)

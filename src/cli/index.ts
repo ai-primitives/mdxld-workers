@@ -70,7 +70,8 @@ program
       console.log('Compilation completed successfully')
     } catch (error) {
       console.error('Compilation failed:', error)
-      process.exit(1)
+      process.exitCode = 1
+      return
     }
   })
 
@@ -94,7 +95,8 @@ program
       console.log('Deployed successfully using Platform API')
     } catch (error) {
       console.error('Platform deployment failed:', error)
-      process.exit(1)
+      process.exitCode = 1
+      return
     }
   })
 
@@ -114,7 +116,8 @@ program
       console.log('Deployed successfully using Wrangler')
     } catch (error) {
       console.error('Wrangler deployment failed:', error)
-      process.exit(1)
+      process.exitCode = 1
+      return
     }
   })
 
