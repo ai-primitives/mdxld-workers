@@ -34,16 +34,22 @@ program
   .version(version, '-v, --version')
   .helpOption('-h, --help')
 
-// Show help by default if no command is provided
-if (process.argv.length === 2) {
-  console.log(program.helpInformation())
-  throw new Error('process.exit unexpectedly called with "0"')
-}
+// Override exit behavior to prevent process.exit in tests
+program.exitOverride((err) => {
+  if (err.code === 'commander.help' || err.code === 'commander.helpDisplayed') {
+    throw new Error('process.exit unexpectedly called with "0"')
+  }
+  if (err.code === 'commander.version') {
+    console.log(version)
+    throw new Error('process.exit unexpectedly called with "0"')
+  }
+  throw new Error('process.exit unexpectedly called with "1"')
+})
 
 // Handle unknown options and error cases
 program.on('command:*', () => {
   console.error('Invalid command: %s\nSee --help for a list of available commands.', program.args.join(' '))
-  throw new Error('process.exit unexpectedly called with "1"')
+  program.help()
 })
 
 program
@@ -96,23 +102,6 @@ program
     }
   })
 
-// Override exit behavior to prevent process.exit in tests
-program.exitOverride((err) => {
-  if (err.code === 'commander.help') {
-    console.log(program.helpInformation())
-    throw new Error('process.exit unexpectedly called with "0"')
-  }
-  if (err.code === 'commander.version') {
-    console.log(version)
-    throw new Error('process.exit unexpectedly called with "0"')
-  }
-  if (err.code === 'commander.unknownOption' || err.code === 'commander.unknownCommand') {
-    console.error(err.message)
-    throw new Error('process.exit unexpectedly called with "1"')
-  }
-  throw new Error('process.exit unexpectedly called with "1"')
-})
-
 // Only parse arguments if this is the main module
 if (require.main === module) {
   program.parseAsync().catch((err) => {
@@ -122,4 +111,8 @@ if (require.main === module) {
     console.error(err.message)
     process.exit(1)
   })
+} else {
+  // When imported as a module (for testing), show help by default if no command is provided
+  program.showHelpAfterError()
+  program.parse(process.argv)
 }
