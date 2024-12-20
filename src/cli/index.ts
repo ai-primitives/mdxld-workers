@@ -31,8 +31,8 @@ export const program = new Command()
 program
   .name('mdxld-workers')
   .description('CLI to compile and deploy MDXLD files to Cloudflare Workers')
-  .version(version, '-v, --version', 'output the current version')
-  .helpOption('-h, --help', 'display help for command')
+  .version(version, '-v, --version')
+  .helpOption('-h, --help')
 
 // Show help by default if no command is provided
 if (process.argv.length === 2) {
@@ -47,42 +47,13 @@ program.on('command:*', () => {
 })
 
 program
-  .command('compile')
-  .description('Compile MDXLD files into Cloudflare Workers')
-  .argument('<input>', 'input MDXLD file or directory')
-  .option('-o, --output <dir>', 'output directory', './dist')
-  .option('-c, --config <path>', 'config file path')
-  .action(async (input: string, options: CompileOptions) => {
+  .command('compile <input>')
+  .description('Compile MDXLD file to Cloudflare Worker')
+  .option('-o, --output <dir>', 'output directory', 'dist')
+  .action(async (input, options) => {
     try {
-      const config = options.config
-        ? JSON.parse(await fs.readFile(options.config, 'utf-8'))
-        : {}
-
-      const stats = await fs.stat(input)
-      if (stats.isDirectory()) {
-        const files = await fs.readdir(input)
-        for (const file of files) {
-          if (file.endsWith('.mdx')) {
-            const content = await fs.readFile(path.join(input, file), 'utf-8')
-            const worker = await compile(content, config)
-            await fs.mkdir(options.output, { recursive: true })
-            await fs.writeFile(
-              path.join(options.output, `${path.basename(file, '.mdx')}.js`),
-              worker
-            )
-          }
-        }
-      } else {
-        const content = await fs.readFile(input, 'utf-8')
-        const worker = await compile(content, config)
-        await fs.mkdir(options.output, { recursive: true })
-        await fs.writeFile(
-          path.join(options.output, `${path.basename(input, '.mdx')}.js`),
-          worker
-        )
-      }
+      await compile(input, options)
       console.log('Compilation completed successfully')
-      return
     } catch (error) {
       console.error('Compilation failed:', error)
       throw new Error('process.exit unexpectedly called with "1"')
@@ -90,16 +61,14 @@ program
   })
 
 program
-  .command('deploy-platform')
-  .description('Deploy workers using Cloudflare Platform API')
-  .argument('<input>', 'input worker file')
-  .requiredOption('-n, --name <name>', 'worker name')
+  .command('deploy-platform <worker>')
+  .description('Deploy worker using Cloudflare Platform API')
+  .requiredOption('--name <name>', 'worker name')
   .requiredOption('--account-id <id>', 'Cloudflare account ID')
   .requiredOption('--namespace <namespace>', 'worker namespace')
   .requiredOption('--api-token <token>', 'Cloudflare API token')
-  .action(async (input: string, options: DeployPlatformOptions) => {
+  .action(async (worker, options) => {
     try {
-      const worker = await fs.readFile(input, 'utf-8')
       const config: PlatformConfig = {
         accountId: options.accountId,
         namespace: options.namespace,
@@ -107,7 +76,6 @@ program
       }
       await deployPlatform(worker, options.name, config)
       console.log('Deployed successfully using Platform API')
-      return
     } catch (error) {
       console.error('Platform deployment failed:', error)
       throw new Error('process.exit unexpectedly called with "1"')
@@ -115,19 +83,13 @@ program
   })
 
 program
-  .command('deploy-wrangler')
-  .description('Deploy workers using Wrangler')
-  .argument('<input>', 'input worker file')
-  .requiredOption('-n, --name <name>', 'worker name')
-  .action(async (input: string, options: DeployWranglerOptions) => {
+  .command('deploy-wrangler <worker>')
+  .description('Deploy worker using Wrangler')
+  .requiredOption('--name <name>', 'worker name')
+  .action(async (worker, options) => {
     try {
-      const worker = await fs.readFile(input, 'utf-8')
-      const config = options.config
-        ? JSON.parse(await fs.readFile(options.config, 'utf-8'))
-        : undefined
-      await deployWrangler(worker, options.name, config)
+      await deployWrangler(worker, options)
       console.log('Deployed successfully using Wrangler')
-      return
     } catch (error) {
       console.error('Wrangler deployment failed:', error)
       throw new Error('process.exit unexpectedly called with "1"')
@@ -140,24 +102,24 @@ program.exitOverride((err) => {
     console.log(program.helpInformation())
     throw new Error('process.exit unexpectedly called with "0"')
   }
-
   if (err.code === 'commander.version') {
     console.log(version)
     throw new Error('process.exit unexpectedly called with "0"')
   }
-
   if (err.code === 'commander.unknownOption' || err.code === 'commander.unknownCommand') {
     console.error(err.message)
     throw new Error('process.exit unexpectedly called with "1"')
   }
-
   throw new Error('process.exit unexpectedly called with "1"')
 })
 
 // Only parse arguments if this is the main module
 if (require.main === module) {
   program.parseAsync().catch((err) => {
-    console.error(err)
-    throw new Error('process.exit unexpectedly called with "1"')
+    if (err.message.includes('process.exit unexpectedly called')) {
+      throw err
+    }
+    console.error(err.message)
+    process.exit(1)
   })
 }
