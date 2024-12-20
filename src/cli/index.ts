@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { Command } from 'commander'
+import { Command, CommanderError } from 'commander'
 import { compile } from '../compiler'
 import { deployPlatform } from '../deploy/platform'
 import { deployWrangler } from '../deploy/wrangler'
@@ -25,6 +25,14 @@ interface DeployWranglerOptions {
   config?: string
 }
 
+// Mock process.exit in test environment before any other code runs
+if (process.env.NODE_ENV === 'test') {
+  const mockExit = (code: number) => {
+    throw new Error(`process.exit unexpectedly called with "${code}"`)
+  }
+  process.exit = mockExit as never
+}
+
 export const program = new Command()
 
 // Configure program
@@ -34,17 +42,13 @@ program
   .version(version, '-v, --version')
   .helpOption('-h, --help')
 
-// Mock process.exit in test environment
-if (process.env.NODE_ENV === 'test') {
-  const mockExit = (code: number) => {
-    throw new Error(`process.exit unexpectedly called with "${code}"`)
-  }
-  process.exit = mockExit as never
-}
-
 // Override exit behavior for testing
 program.exitOverride((err) => {
-  if (err.code === 'commander.helpDisplayed') {
+  const isHelpCommand = err.code === 'commander.helpDisplayed' ||
+                       err.code === 'commander.help' ||
+                       err.code === 'commander.missingArgument'
+
+  if (isHelpCommand) {
     console.log(program.helpInformation())
     process.exit(0)
   }
@@ -107,11 +111,25 @@ program
   })
 
 // Parse arguments
+const parseAndHandleErrors = async (args: string[]) => {
+  try {
+    await program.parseAsync(args)
+  } catch (err) {
+    if (err instanceof CommanderError) {
+      console.error(err.message)
+      process.exit(err.exitCode ?? 1)
+    } else if (err instanceof Error) {
+      console.error(err.message)
+      process.exit(1)
+    } else {
+      console.error('An unknown error occurred')
+      process.exit(1)
+    }
+  }
+}
+
 if (require.main === module) {
-  program.parseAsync().catch((err) => {
-    console.error(err.message)
-    process.exit(1)
-  })
+  parseAndHandleErrors(process.argv)
 } else {
-  program.parse(process.argv)
+  parseAndHandleErrors(process.argv)
 }
