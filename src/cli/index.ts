@@ -31,27 +31,23 @@ export const program = new Command()
 program
   .name('mdxld-workers')
   .description('CLI to compile and deploy MDXLD files to Cloudflare Workers')
-  .version(version, '-V, --version', 'output the version number')
+  .version(version)
   .showHelpAfterError()
   .addHelpCommand()
   .showSuggestionAfterError()
 
-// Handle help and version commands with exit code 0
-program.on('--help', () => {
-  process.exit(0)
-})
-
-program.on('--version', () => {
-  process.exit(0)
+// Override exit behavior
+program.exitOverride((err) => {
+  if (err.code === 'commander.helpDisplayed' || err.code === 'commander.version') {
+    process.exit(0)
+  }
+  throw err
 })
 
 // Show help by default if no command is provided
-program.hook('preAction', () => {
-  if (!process.argv.slice(2).length) {
-    program.outputHelp()
-    process.exit(0)
-  }
-})
+if (!process.argv.slice(2).length) {
+  program.help()
+}
 
 // Handle unknown options and error cases
 program.on('command:*', () => {
