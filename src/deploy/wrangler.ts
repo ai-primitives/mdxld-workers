@@ -19,15 +19,26 @@ export interface WranglerConfig {
 
 /**
  * Deploys a worker using Wrangler CLI
+ * @param worker Worker code as string
+ * @param name Worker name
+ * @param config Optional Wrangler configuration
  */
 export async function deployWrangler(
   worker: string,
-  config: WranglerConfig
+  name: string,
+  config?: Partial<WranglerConfig>
 ): Promise<void> {
   // Create temporary directory for worker files
-  const tmpDir = await tmpdir()
-  const workerPath = join(tmpDir, `${config.name}.js`)
+  const tmpDir = tmpdir()
+  const workerPath = join(tmpDir, `${name}.js`)
   const configPath = join(tmpDir, 'wrangler.toml')
+
+  const fullConfig: WranglerConfig = {
+    name,
+    compatibilityDate: config?.compatibilityDate ?? new Date().toISOString().split('T')[0],
+    routes: config?.routes,
+    env: config?.env
+  }
 
   try {
     // Write worker code to temporary file
@@ -35,13 +46,13 @@ export async function deployWrangler(
 
     // Generate wrangler.toml
     const wranglerConfig = `
-name = "${config.name}"
+name = "${fullConfig.name}"
 main = "${workerPath}"
-compatibility_date = "${config.compatibilityDate}"
+compatibility_date = "${fullConfig.compatibilityDate}"
 
-${config.routes ? config.routes.map(route => `routes = ["${route}"]`).join('\n') : ''}
+${fullConfig.routes ? fullConfig.routes.map(route => `routes = ["${route}"]`).join('\n') : ''}
 
-${config.env ? '[vars]\n' + Object.entries(config.env)
+${fullConfig.env ? '[vars]\n' + Object.entries(fullConfig.env)
   .map(([key, value]) => `${key} = "${value}"`)
   .join('\n') : ''}
 `
