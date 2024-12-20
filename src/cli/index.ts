@@ -36,7 +36,8 @@ program
 
 // Show help by default if no command is provided
 if (process.argv.length === 2) {
-  program.outputHelp()
+  console.log(program.helpInformation())
+  process.exitCode = 0
 }
 
 // Handle unknown options and error cases
@@ -138,10 +139,13 @@ program
 
 // Override exit behavior to prevent process.exit in tests
 program.exitOverride((err) => {
-  if (err.code === 'commander.help' || err.code === 'commander.version') {
-    // Ensure console output is captured before throwing
-    const output = program.helpInformation()
-    console.log(output)
+  if (err.code === 'commander.help') {
+    console.log(program.helpInformation())
+    throw new Error('process.exit unexpectedly called with "0"')
+  }
+
+  if (err.code === 'commander.version') {
+    console.log(version)
     throw new Error('process.exit unexpectedly called with "0"')
   }
 
