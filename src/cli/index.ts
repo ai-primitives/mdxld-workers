@@ -29,10 +29,10 @@ program
 program.exitOverride((err) => {
   if (err.code === 'commander.version') {
     console.log(version)
-    exit(0)
+    process.exit(0)
   } else if (err.code === 'commander.help' || err.code === 'commander.helpDisplayed') {
     console.log(program.helpInformation())
-    exit(0)
+    process.exit(0)
   }
   throw err
 })

@@ -1,11 +1,12 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi, MockedFunction } from 'vitest'
 import { version } from '../../package.json'
 import type { CompileOptions, PlatformConfig, WranglerConfig } from '../deploy/types'
 
 // Setup spies before importing program
 const exitSpy = vi.spyOn(process, 'exit').mockImplementation((code?: string | number | null | undefined): never => {
+  // Ensure the error message matches exactly what the tests expect
   throw new Error(`process.exit unexpectedly called with "${code}"`)
-})
+}) as MockedFunction<(code?: string | number | null | undefined) => never>
 const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
 // Mock compiler module before importing program
