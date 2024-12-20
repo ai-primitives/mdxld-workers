@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { program, exit } from './index'
+import { program } from './index'
+import type { MockInstance } from 'vitest'
 
-// Mock dependencies before importing tested module
+// Mock dependencies
 vi.mock('../compiler', () => ({
   compile: vi.fn().mockResolvedValue('compiled-worker')
 }))
@@ -24,14 +25,16 @@ vi.mock('node:fs/promises', () => ({
 }))
 
 describe('CLI', () => {
-  const mockExit = vi.fn()
+  let exitSpy: MockInstance<typeof process.exit>
+  let logSpy: MockInstance<typeof console.log>
+  let errorSpy: MockInstance<typeof console.error>
 
   beforeEach(() => {
-    vi.spyOn(console, 'log').mockImplementation(() => {})
-    vi.spyOn(console, 'error').mockImplementation(() => {})
-    // Replace the exit function with our mock
-    vi.stubGlobal('exit', mockExit)
-    mockExit.mockClear()
+    logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    exitSpy = vi.spyOn(process, 'exit').mockImplementation((code?: number | string | null) => {
+      throw new Error(`process.exit called with code ${code}`)
+    })
   })
 
   afterEach(() => {
@@ -39,74 +42,66 @@ describe('CLI', () => {
   })
 
   it('should show version when --version flag is used', async () => {
-    const consoleSpy = vi.spyOn(console, 'log')
-
     await expect(async () => {
-      await program.parseAsync(['--version'])
-    }).rejects.toThrow('process.exit called with "0"')
+      await program.parseAsync(['node', 'cli.js', '--version'])
+    }).rejects.toThrow('process.exit called with code 0')
 
-    expect(consoleSpy).toHaveBeenCalled()
-    expect(mockExit).toHaveBeenCalledWith(0)
+    expect(logSpy).toHaveBeenCalled()
+    expect(exitSpy).toHaveBeenCalledWith(0)
   })
 
   it('should show help when --help flag is used', async () => {
-    const consoleSpy = vi.spyOn(console, 'log')
-
     await expect(async () => {
-      await program.parseAsync(['--help'])
-    }).rejects.toThrow('process.exit called with "0"')
+      await program.parseAsync(['node', 'cli.js', '--help'])
+    }).rejects.toThrow('process.exit called with code 0')
 
-    expect(consoleSpy).toHaveBeenCalled()
-    expect(mockExit).toHaveBeenCalledWith(0)
+    expect(logSpy).toHaveBeenCalled()
+    expect(exitSpy).toHaveBeenCalledWith(0)
   })
 
   it('should show help when no command is provided', async () => {
-    const consoleSpy = vi.spyOn(console, 'log')
-
     await expect(async () => {
-      await program.parseAsync([])
-    }).rejects.toThrow('process.exit called with "0"')
+      await program.parseAsync(['node', 'cli.js'])
+    }).rejects.toThrow('process.exit called with code 0')
 
-    expect(consoleSpy).toHaveBeenCalled()
-    expect(mockExit).toHaveBeenCalledWith(0)
+    expect(logSpy).toHaveBeenCalled()
+    expect(exitSpy).toHaveBeenCalledWith(0)
   })
 
-  it('should have compile command', async () => {
+  it('should compile MDXLD file with default options', async () => {
     const { compile } = await import('../compiler')
-    const consoleSpy = vi.spyOn(console, 'log')
 
-    await program.parseAsync(['compile', 'test.mdx'])
+    await program.parseAsync(['node', 'cli.js', 'compile', 'test.mdx'])
 
-    expect(compile).toHaveBeenCalled()
-    expect(consoleSpy).toHaveBeenCalledWith('Compilation completed successfully')
+    expect(compile).toHaveBeenCalledWith('test.mdx', expect.objectContaining({
+      jsx: expect.objectContaining({
+        importSource: 'hono/jsx',
+        runtime: 'react-jsx'
+      }),
+      worker: expect.objectContaining({
+        name: 'mdxld-worker'
+      })
+    }))
+    expect(logSpy).toHaveBeenCalledWith('Compilation completed successfully')
   })
 
-  it('should have deploy-platform command', async () => {
+  it('should deploy using platform API', async () => {
     const { deployPlatform } = await import('../deploy/platform')
-    const consoleSpy = vi.spyOn(console, 'log')
 
-    await program.parseAsync([
-      'deploy-platform', 'worker.js',
-      '--name', 'test-worker',
-      '--account-id', 'account123',
-      '--namespace', 'test-ns',
-      '--api-token', 'token123'
-    ])
+    await program.parseAsync(['node', 'cli.js', 'deploy-platform', '--namespace', 'test'])
 
-    expect(deployPlatform).toHaveBeenCalled()
-    expect(consoleSpy).toHaveBeenCalledWith('Deployed successfully using Platform API')
+    expect(deployPlatform).toHaveBeenCalledWith(expect.objectContaining({
+      namespace: 'test'
+    }))
+    expect(logSpy).toHaveBeenCalledWith('Platform deployment completed successfully')
   })
 
-  it('should have deploy-wrangler command', async () => {
+  it('should deploy using wrangler', async () => {
     const { deployWrangler } = await import('../deploy/wrangler')
-    const consoleSpy = vi.spyOn(console, 'log')
 
-    await program.parseAsync([
-      'deploy-wrangler', 'worker.js',
-      '--name', 'test-worker'
-    ])
+    await program.parseAsync(['node', 'cli.js', 'deploy-wrangler'])
 
     expect(deployWrangler).toHaveBeenCalled()
-    expect(consoleSpy).toHaveBeenCalledWith('Deployed successfully using Wrangler')
+    expect(logSpy).toHaveBeenCalledWith('Wrangler deployment completed successfully')
   })
 })
