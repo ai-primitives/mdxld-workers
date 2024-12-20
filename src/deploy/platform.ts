@@ -24,7 +24,7 @@ export async function deployPlatform(
 ): Promise<void> {
   const url = `https://api.cloudflare.com/client/v4/accounts/${config.accountId}/workers/dispatch/namespaces/${config.namespace}/scripts/${name}`
 
-  const response = await fetch(url, {
+  const response = await globalThis.fetch(url, {
     method: 'PUT',
     headers: {
       'Authorization': `Bearer ${config.apiToken}`,
