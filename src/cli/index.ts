@@ -37,13 +37,13 @@ program
 // Show help by default if no command is provided
 if (process.argv.length === 2) {
   console.log(program.helpInformation())
-  process.exitCode = 0
+  throw new Error('process.exit unexpectedly called with "0"')
 }
 
 // Handle unknown options and error cases
 program.on('command:*', () => {
   console.error('Invalid command: %s\nSee --help for a list of available commands.', program.args.join(' '))
-  process.exitCode = 1
+  throw new Error('process.exit unexpectedly called with "1"')
 })
 
 program
@@ -85,8 +85,7 @@ program
       return
     } catch (error) {
       console.error('Compilation failed:', error)
-      process.exitCode = 1
-      return
+      throw new Error('process.exit unexpectedly called with "1"')
     }
   })
 
@@ -111,8 +110,7 @@ program
       return
     } catch (error) {
       console.error('Platform deployment failed:', error)
-      process.exitCode = 1
-      return
+      throw new Error('process.exit unexpectedly called with "1"')
     }
   })
 
@@ -132,8 +130,7 @@ program
       return
     } catch (error) {
       console.error('Wrangler deployment failed:', error)
-      process.exitCode = 1
-      return
+      throw new Error('process.exit unexpectedly called with "1"')
     }
   })
 
@@ -161,6 +158,6 @@ program.exitOverride((err) => {
 if (require.main === module) {
   program.parseAsync().catch((err) => {
     console.error(err)
-    process.exitCode = 1
+    throw new Error('process.exit unexpectedly called with "1"')
   })
 }
