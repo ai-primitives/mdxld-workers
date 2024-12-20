@@ -3,7 +3,7 @@ import { Command } from 'commander'
 import { compile } from '../compiler'
 import { deployPlatform } from '../deploy/platform'
 import { deployWrangler } from '../deploy/wrangler'
-import type { PlatformConfig } from '../deploy/platform'
+import type { PlatformConfig } from '../deploy/types'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { version } from '../../package.json'
@@ -27,44 +27,26 @@ interface DeployWranglerOptions {
 
 export const program = new Command()
 
-// Configure program with help and version handling
+// Configure program
 program
   .name('mdxld-workers')
   .description('CLI to compile and deploy MDXLD files to Cloudflare Workers')
   .version(version, '-v, --version')
   .helpOption('-h, --help')
 
-// Mock process.exit in test environment
-if (process.env.NODE_ENV === 'test') {
-  const mockExit = (code: number) => {
-    throw new Error(`process.exit unexpectedly called with "${code}"`)
-  }
-  process.exit = mockExit as never
-}
-
-// Override exit behavior to prevent process.exit in tests
+// Override exit behavior to ensure console output before exit
 program.exitOverride((err) => {
-  if (err.code === 'commander.helpDisplayed' || err.code === 'commander.help') {
-    console.log(program.helpInformation())
-    process.exit(0)
-  }
-  if (err.code === 'commander.version') {
-    console.log(version)
-    process.exit(0)
+  if (err.code === 'commander.helpDisplayed' || err.code === 'commander.version') {
+    throw err
   }
   if (err.code === 'commander.unknownOption' || err.code === 'commander.unknownCommand') {
     console.error(err.message)
-    process.exit(1)
+    throw err
   }
-  process.exit(1)
+  throw err
 })
 
-// Handle unknown options and error cases
-program.on('command:*', () => {
-  console.error('Invalid command: %s\nSee --help for a list of available commands.', program.args.join(' '))
-  program.help()
-})
-
+// Add commands
 program
   .command('compile <input>')
   .description('Compile MDXLD file to Cloudflare Worker')
@@ -115,13 +97,15 @@ program
     }
   })
 
-// Only parse arguments if this is the main module
+// Parse arguments
 if (require.main === module) {
   program.parseAsync().catch((err) => {
+    if (err.code === 'commander.helpDisplayed' || err.code === 'commander.version') {
+      process.exit(0)
+    }
     console.error(err.message)
     process.exit(1)
   })
 } else {
-  // When imported as a module (for testing), let Commander handle help display
   program.parse(process.argv)
 }
