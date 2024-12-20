@@ -19,9 +19,6 @@ const exit = process.exit
 export const program = new Command()
   .name('mdxld-workers')
   .description('CLI to compile and deploy MDXLD files to Cloudflare Workers')
-  .action(() => {
-    program.outputHelp()
-  })
 
 // Configure version and help
 program
@@ -159,9 +156,9 @@ program
 // Run CLI
 if (typeof require !== 'undefined' && require.main === module) {
   program.parseAsync(process.argv).catch((err) => {
-    // Check if error is from help text display
-    if (err instanceof Error && err.message.includes('process.exit unexpectedly called with "0"')) {
-      process.exit(0)
+    // Let Commander handle help text display and exit
+    if (err instanceof Error && err.message.includes('process.exit unexpectedly called')) {
+      throw err
     }
     console.error(err instanceof Error ? err.message : 'An unknown error occurred')
     process.exit(1)
