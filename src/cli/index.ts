@@ -20,17 +20,9 @@ export const program = new Command()
   .name('mdxld-workers')
   .description('CLI to compile and deploy MDXLD files to Cloudflare Workers')
 
-// Handle version flag
-program.option('-v, --version', 'output the version number')
-
-// Override version output to ensure proper logging
-program.on('option:version', () => {
-  console.log(version)
-  exit(0)
-})
-
-// Show help by default when no command is provided
+// Configure version and help
 program
+  .version(version, '-v, --version', 'output the version number')
   .configureHelp({
     helpWidth: 80,
     sortSubcommands: true,
@@ -40,25 +32,30 @@ program
 
 // Override exit behavior for testing
 program.exitOverride((err) => {
-  // Always throw with consistent error message format
   throw new Error(`process.exit unexpectedly called with "${err.exitCode}"`)
 })
 
-// Handle help output
-program.helpOption('-h, --help', 'display help for command')
+// Add listener for version output
+const originalWrite = process.stdout.write.bind(process.stdout)
+const newWrite = function(
+  this: NodeJS.WriteStream,
+  buffer: string | Uint8Array,
+  encodingOrCb?: BufferEncoding | ((err?: Error) => void),
+  cb?: (err?: Error) => void
+): boolean {
+  const output = buffer.toString()
+  if (output.trim() === version) {
+    console.log(version)
+    exit(0)
+  }
 
-program.on('--help', () => {
-  const helpText = program.helpInformation()
-  console.log(helpText)
-  exit(0)
-})
+  if (typeof encodingOrCb === 'function') {
+    return originalWrite(buffer, encodingOrCb)
+  }
+  return originalWrite(buffer, encodingOrCb, cb)
+}
 
-// Default action when no command is provided
-program.action(() => {
-  const helpText = program.helpInformation()
-  console.log(helpText)
-  exit(0)
-})
+process.stdout.write = newWrite as typeof process.stdout.write
 
 // Default compile options
 const defaultCompileOptions: CompileOptions = {
@@ -78,26 +75,59 @@ interface CompileCommandOptions {
   compatibilityDate: string
 }
 
+// Add compile command
+program
+  .command('compile')
+  .description('Compile MDXLD file to Cloudflare Worker')
+  .argument('<input>', 'Input MDXLD file')
+  .option('-n, --name <name>', 'Worker name', defaultCompileOptions.worker.name)
+  .option('-r, --routes <routes>', 'Worker routes (comma-separated)')
+  .option('-c, --compatibility-date <date>', 'Worker compatibility date', defaultCompileOptions.worker.compatibilityDate)
+  .action(async (input: string, options: CompileCommandOptions) => {
+    const compileOptions: CompileOptions = {
+      ...defaultCompileOptions,
+      worker: {
+        name: options.name,
+        routes: options.routes?.split(','),
+        compatibilityDate: options.compatibilityDate
+      }
+    }
+    await compile(input, compileOptions)
+  })
+
+// Add deploy-platform command
+program
+  .command('deploy-platform')
+  .description('Deploy worker using Cloudflare Platform API')
+  .argument('<worker>', 'Worker script file')
+  .requiredOption('-n, --name <name>', 'Worker name')
+  .requiredOption('--namespace <namespace>', 'Platform namespace')
+  .requiredOption('--account-id <accountId>', 'Platform account ID')
+  .requiredOption('--api-token <token>', 'Platform API token')
+  .action(async (worker: string, options: PlatformOptions & Required<Pick<PlatformOptions, 'namespace' | 'accountId' | 'apiToken'>>) => {
+    const config: PlatformConfig = {
+      namespace: options.namespace,
+      accountId: options.accountId,
+      apiToken: options.apiToken
+    }
+    await deployPlatform(worker, options.name, config)
+    console.log('Platform deployment completed successfully')
+  })
+
+// Add deploy-wrangler command
 program
   .command('deploy-wrangler')
-  .argument('<worker>', 'Worker file or directory')
-  .requiredOption('--name <name>', 'Worker name')
-  .option('--routes <routes>', 'Worker routes (comma-separated)')
-  .option('--compatibility-date <date>', 'Worker compatibility date')
   .description('Deploy worker using Wrangler')
-  .action(async (worker: string, cmdOptions: WranglerOptions) => {
-    try {
-      const config: WranglerConfig = {
-        name: cmdOptions.name,
-        routes: cmdOptions.routes?.split(','),
-        compatibilityDate: cmdOptions.compatibilityDate ?? new Date().toISOString().split('T')[0]
-      }
-      await deployWrangler(worker, config)
-      console.log('Deployed successfully using Wrangler')
-    } catch (err) {
-      console.error(err instanceof Error ? err.message : 'Deployment failed')
-      exit(1)
+  .argument('<worker>', 'Worker script file')
+  .requiredOption('-n, --name <name>', 'Worker name')
+  .option('-c, --compatibility-date <date>', 'Worker compatibility date', defaultCompileOptions.worker.compatibilityDate)
+  .action(async (worker: string, options: WranglerOptions & { compatibilityDate: string }) => {
+    const config: WranglerConfig = {
+      name: options.name,
+      compatibilityDate: options.compatibilityDate
     }
+    await deployWrangler(worker, config)
+    console.log('Deployed successfully using Wrangler')
   })
 
 // Run CLI
