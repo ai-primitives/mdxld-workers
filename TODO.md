@@ -51,6 +51,15 @@
     - [x] Properly import mocked functions in tests
     - [x] Handle Commander.js process.exit mocking
   - [ ] Verify test coverage for all commands
+  - [ ] Vitest Module Mocking Error (Reproduction)
+    - Error: "ReferenceError: mockCompile is not defined"
+    - Location: src/cli/index.test.ts:2:64
+    - Cause: Mock function used before hoisting completed
+    - Fix: Ensure all vi.mock() calls are at top of file
+    - Steps to reproduce:
+      1. Run `pnpm test`
+      2. Check error in src/cli/index.test.ts
+      3. Verify mock function declarations
 
 ## Verification Requirements
 - [ ] Test Coverage
