@@ -1,8 +1,25 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { program } from './index'
-import type { MockInstance } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { version } from '../../package.json'
 
-// Mock dependencies
+// Mock the CLI module before importing
+vi.mock('./index', async () => {
+  const actual = await vi.importActual<typeof import('./index')>('./index')
+  return {
+    ...actual,
+    exit: vi.fn((code?: number) => {
+      throw new Error(`Exit called with code ${code}`)
+    })
+  }
+})
+
+// Import after mocking
+import { program, exit } from './index'
+
+// Setup spies
+const exitSpy = vi.mocked(exit)
+const logSpy = vi.spyOn(console, 'log')
+
+// Mock deployment functions
 vi.mock('../compiler', () => ({
   compile: vi.fn().mockResolvedValue('compiled-worker')
 }))
@@ -25,46 +42,34 @@ vi.mock('node:fs/promises', () => ({
 }))
 
 describe('CLI', () => {
-  let exitSpy: MockInstance<typeof process.exit>
-  let logSpy: MockInstance<typeof console.log>
-  let errorSpy: MockInstance<typeof console.error>
-
   beforeEach(() => {
-    logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-    errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    exitSpy = vi.spyOn(process, 'exit').mockImplementation((code?: number | string | null) => {
-      throw new Error(`process.exit called with code ${code}`)
-    })
-  })
-
-  afterEach(() => {
-    vi.restoreAllMocks()
+    vi.clearAllMocks()
   })
 
   it('should show version when --version flag is used', async () => {
     await expect(async () => {
       await program.parseAsync(['node', 'cli.js', '--version'])
-    }).rejects.toThrow('process.exit called with code 0')
+    }).rejects.toThrow('Exit called with code 0')
 
-    expect(logSpy).toHaveBeenCalled()
+    expect(logSpy).toHaveBeenCalledWith(version)
     expect(exitSpy).toHaveBeenCalledWith(0)
   })
 
   it('should show help when --help flag is used', async () => {
     await expect(async () => {
       await program.parseAsync(['node', 'cli.js', '--help'])
-    }).rejects.toThrow('process.exit called with code 0')
+    }).rejects.toThrow('Exit called with code 0')
 
-    expect(logSpy).toHaveBeenCalled()
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Usage:'))
     expect(exitSpy).toHaveBeenCalledWith(0)
   })
 
   it('should show help when no command is provided', async () => {
     await expect(async () => {
       await program.parseAsync(['node', 'cli.js'])
-    }).rejects.toThrow('process.exit called with code 0')
+    }).rejects.toThrow('Exit called with code 0')
 
-    expect(logSpy).toHaveBeenCalled()
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Usage:'))
     expect(exitSpy).toHaveBeenCalledWith(0)
   })
 
@@ -88,20 +93,33 @@ describe('CLI', () => {
   it('should deploy using platform API', async () => {
     const { deployPlatform } = await import('../deploy/platform')
 
-    await program.parseAsync(['node', 'cli.js', 'deploy-platform', '--namespace', 'test'])
+    await program.parseAsync([
+      'node', 'cli.js', 'deploy-platform',
+      'worker.js',
+      '--namespace', 'test',
+      '--account-id', 'test-account',
+      '--api-token', 'test-token',
+      '--name', 'test-worker'
+    ])
 
-    expect(deployPlatform).toHaveBeenCalledWith(expect.objectContaining({
-      namespace: 'test'
-    }))
+    expect(deployPlatform).toHaveBeenCalledWith(
+      'worker.js',
+      'test-worker',
+      expect.objectContaining({
+        namespace: 'test',
+        accountId: 'test-account',
+        apiToken: 'test-token'
+      })
+    )
     expect(logSpy).toHaveBeenCalledWith('Platform deployment completed successfully')
   })
 
   it('should deploy using wrangler', async () => {
     const { deployWrangler } = await import('../deploy/wrangler')
 
-    await program.parseAsync(['node', 'cli.js', 'deploy-wrangler'])
+    await program.parseAsync(['node', 'cli.js', 'deploy-wrangler', '--name', 'test-worker', 'worker.js'])
 
     expect(deployWrangler).toHaveBeenCalled()
-    expect(logSpy).toHaveBeenCalledWith('Wrangler deployment completed successfully')
+    expect(logSpy).toHaveBeenCalledWith('Deployed successfully using Wrangler')
   })
 })

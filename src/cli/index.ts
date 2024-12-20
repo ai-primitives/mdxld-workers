@@ -7,14 +7,26 @@ import type { PlatformConfig } from '../deploy/types'
 import { version } from '../../package.json'
 
 // Export for testing
-export let exit = process.exit
-
-// Configure process.exit for testing
-if (process.env.NODE_ENV === 'test') {
-  exit = ((code?: number) => {
-    throw new Error(`process.exit called with code ${code}`)
-  }) as never
+export const exit = (code?: number): never => {
+  process.exit(code)
 }
+
+// Create and configure program
+export const program = new Command()
+  .name('mdxld-workers')
+  .description('CLI to compile and deploy MDXLD files to Cloudflare Workers')
+  .version(version, '-v, --version')
+  .helpOption('-h, --help')
+  .exitOverride((err) => {
+    if (err.code === 'commander.help' || err.code === 'commander.helpDisplayed') {
+      console.log(program.helpInformation())
+      exit(0)
+    } else if (err.code === 'commander.version') {
+      console.log(version)
+      exit(0)
+    }
+    exit(1)
+  })
 
 // Default compile options
 const defaultCompileOptions: CompileOptions = {
@@ -27,28 +39,6 @@ const defaultCompileOptions: CompileOptions = {
     compatibilityDate: new Date().toISOString().split('T')[0]
   }
 }
-
-// Configure program
-export const program = new Command()
-  .name('mdxld-workers')
-  .description('CLI to compile and deploy MDXLD files to Cloudflare Workers')
-  .version(version, '-v, --version')
-  .helpOption('-h, --help')
-
-// Override exit behavior for testing
-program.exitOverride((err) => {
-  if (err.code === 'commander.help' || err.code === 'commander.helpDisplayed') {
-    console.log(program.helpInformation())
-    exit(0)
-    return
-  }
-  if (err.code === 'commander.version') {
-    console.log(version)
-    exit(0)
-    return
-  }
-  throw err
-})
 
 program
   .command('compile')
@@ -75,22 +65,21 @@ program
   })
 
 program
-  .command('deploy-platform')
-  .argument('<worker>', 'Worker file to deploy')
-  .requiredOption('--name <name>', 'Worker name')
-  .requiredOption('--account-id <accountId>', 'Cloudflare account ID')
-  .requiredOption('--namespace <namespace>', 'Worker namespace')
-  .requiredOption('--api-token <token>', 'Cloudflare API token')
+  .command('deploy-platform <worker>')
   .description('Deploy worker using Cloudflare Platform API')
+  .requiredOption('--namespace <namespace>', 'Platform namespace')
+  .requiredOption('--account-id <accountId>', 'Cloudflare account ID')
+  .requiredOption('--api-token <token>', 'Cloudflare API token')
+  .requiredOption('--name <name>', 'Worker name')
   .action(async (worker: string, options: any) => {
     try {
       const config: PlatformConfig = {
-        accountId: options.accountId,
         namespace: options.namespace,
+        accountId: options.accountId,
         apiToken: options.apiToken
       }
       await deployPlatform(worker, options.name, config)
-      console.log('Deployed successfully using Platform API')
+      console.log('Platform deployment completed successfully')
     } catch (err) {
       console.error(err instanceof Error ? err.message : 'Deployment failed')
       exit(1)
