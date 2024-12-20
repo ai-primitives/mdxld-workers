@@ -37,8 +37,15 @@ program.exitOverride((err) => {
   throw err
 })
 
+// Parse arguments
+if (require.main === module) {
+  program.parse(process.argv)
+} else {
+  program.parse()
+}
+
 // Default compile options
-const defaultCompileOptions = {
+const defaultCompileOptions: CompileOptions = {
   jsx: {
     importSource: 'hono/jsx' as const,
     runtime: 'react-jsx' as const
@@ -47,7 +54,7 @@ const defaultCompileOptions = {
     name: 'mdxld-worker',
     compatibilityDate: new Date().toISOString().split('T')[0]
   }
-} satisfies CompileOptions
+}
 
 interface CompileCommandOptions {
   name: string
