@@ -4,7 +4,7 @@ import type { CompileOptions } from '../deploy/types'
 
 // Setup spies before importing program
 const exitSpy = vi.spyOn(process, 'exit').mockImplementation((code?: string | number | null | undefined): never => {
-  throw new Error(`process.exit called with ${code}`)
+  throw new Error(`process.exit unexpectedly called with "${code}"`)
 }) as MockedFunction<(code?: string | number | null | undefined) => never>
 const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
@@ -42,22 +42,25 @@ describe('CLI', () => {
     vi.clearAllMocks()
   })
 
-  it('should show version when --version flag is used', () => {
-    program.parse(['node', 'cli.js', '--version'])
+  it('should show version when --version flag is used', async () => {
+    await expect(async () => {
+      await program.parseAsync(['node', 'cli.js', '--version'])
+    }).rejects.toThrow('process.exit unexpectedly called with "0"')
     expect(logSpy).toHaveBeenCalledWith(version)
-    expect(exitSpy).toHaveBeenCalledWith(0)
   })
 
-  it('should show help when --help flag is used', () => {
-    program.parse(['node', 'cli.js', '--help'])
+  it('should show help when --help flag is used', async () => {
+    await expect(async () => {
+      await program.parseAsync(['node', 'cli.js', '--help'])
+    }).rejects.toThrow('process.exit unexpectedly called with "0"')
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Usage:'))
-    expect(exitSpy).toHaveBeenCalledWith(0)
   })
 
-  it('should show help when no command is provided', () => {
-    program.parse(['node', 'cli.js'])
+  it('should show help when no command is provided', async () => {
+    await expect(async () => {
+      await program.parseAsync(['node', 'cli.js'])
+    }).rejects.toThrow('process.exit unexpectedly called with "0"')
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Usage:'))
-    expect(exitSpy).toHaveBeenCalledWith(0)
   })
 
   it('should compile MDXLD file with default options', async () => {
