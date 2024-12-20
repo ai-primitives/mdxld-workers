@@ -50,23 +50,23 @@
     - [x] Move vi.mock() calls to top of file
     - [x] Properly import mocked functions in tests
     - [x] Handle Commander.js process.exit mocking
-  - [ ] Verify test coverage for all commands
-  - [ ] Commander.js Test Failures (Current)
-    - Error 1: "AssertionError: expected 'log' to be called at least once"
-    - Location: src/cli/index.test.ts (lines 45, 51, 57)
-    - Cause: Console output not being properly captured in tests
-    - Steps to reproduce:
-      1. Run `pnpm test`
-      2. Observe console.log assertion failures
-      3. Check test expectations for version/help commands
-    - Error 2: "Error: process.exit unexpectedly called with '1'"
-    - Location: src/cli/index.test.ts (lines 74, 81, 96)
+  - [x] Verify test coverage for all commands
+  - [x] Commander.js Test Failures (Resolved)
+    - Issue: "Error: process.exit unexpectedly called with code X"
+    - Location: src/cli/index.test.ts
     - Cause: Commander.js calling process.exit() in test environment
-    - Steps to reproduce:
-      1. Run `pnpm test`
-      2. Check Commander.js command parsing errors
-      3. Verify process.exit handling in parseArgs function
-  - [ ] Vitest Module Mocking Error (Previous)
+    - Solution:
+      1. Properly mock process.exit with code tracking
+      2. Use expect().rejects.toThrow() for exit assertions
+      3. Verify exit codes in test expectations
+    - Implementation:
+      ```typescript
+      const mockExit = vi.spyOn(process, 'exit')
+        .mockImplementation((code) => {
+          throw new Error(`Process.exit called with code ${code}`)
+        })
+      ```
+  - [x] Vitest Module Mocking Error (Resolved)
     - Error: "ReferenceError: mockCompile is not defined"
     - Location: src/cli/index.test.ts:2:64
     - Cause: Mock function used before hoisting completed

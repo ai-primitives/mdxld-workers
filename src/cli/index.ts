@@ -122,13 +122,3 @@ program
 if (require.main === module) {
   program.parse()
 }
-
-// Export a function to parse arguments for testing
-export async function parseArgs(args: string[] = []): Promise<void> {
-  try {
-    await program.parseAsync(['node', 'test', ...args], { from: 'user' })
-  } catch (error) {
-    // Let the error propagate for testing
-    throw error
-  }
-}

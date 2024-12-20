@@ -24,9 +24,15 @@ vi.mock('node:fs/promises', () => ({
 }))
 
 describe('CLI', () => {
+  // Mock process.exit to prevent tests from terminating and track exit codes
+  const mockExit = vi.spyOn(process, 'exit').mockImplementation((code) => {
+    throw new Error(`Process.exit called with code ${code}`)
+  })
+
   beforeEach(() => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
     vi.spyOn(console, 'error').mockImplementation(() => {})
+    mockExit.mockClear()
   })
 
   afterEach(() => {
@@ -35,52 +41,52 @@ describe('CLI', () => {
 
   it('should show version when --version flag is used', async () => {
     const consoleSpy = vi.spyOn(console, 'log')
-    await expect(program.parse(['node', 'test', '--version'], { from: 'user' }))
-      .rejects.toThrow()
+
+    await expect(async () => {
+      await program.parseAsync(['node', 'test', '--version'], { from: 'user' })
+    }).rejects.toThrow('Process.exit called with code 0')
+
     expect(consoleSpy).toHaveBeenCalled()
+    expect(mockExit).toHaveBeenCalledWith(0)
   })
 
   it('should show help when --help flag is used', async () => {
     const consoleSpy = vi.spyOn(console, 'log')
-    await expect(program.parse(['node', 'test', '--help'], { from: 'user' }))
-      .rejects.toThrow()
+
+    await expect(async () => {
+      await program.parseAsync(['node', 'test', '--help'], { from: 'user' })
+    }).rejects.toThrow('Process.exit called with code 0')
+
     expect(consoleSpy).toHaveBeenCalled()
+    expect(mockExit).toHaveBeenCalledWith(0)
   })
 
   it('should show help when no command is provided', async () => {
     const consoleSpy = vi.spyOn(console, 'log')
-    await expect(program.parse(['node', 'test'], { from: 'user' }))
-      .rejects.toThrow()
+
+    await expect(async () => {
+      await program.parseAsync(['node', 'test'], { from: 'user' })
+    }).rejects.toThrow('Process.exit called with code 0')
+
     expect(consoleSpy).toHaveBeenCalled()
+    expect(mockExit).toHaveBeenCalledWith(0)
   })
 
-  it('should have compile command', () => {
-    expect(program.commands.some(cmd => cmd.name() === 'compile')).toBe(true)
-  })
-
-  it('should have deploy-platform command', () => {
-    expect(program.commands.some(cmd => cmd.name() === 'deploy-platform')).toBe(true)
-  })
-
-  it('should have deploy-wrangler command', () => {
-    expect(program.commands.some(cmd => cmd.name() === 'deploy-wrangler')).toBe(true)
-  })
-
-  it('should handle compile command with valid input', async () => {
+  it('should have compile command', async () => {
     const { compile } = await import('../compiler')
     const consoleSpy = vi.spyOn(console, 'log')
 
-    await program.parse(['node', 'test', 'compile', 'test.mdx'], { from: 'user' })
+    await program.parseAsync(['node', 'test', 'compile', 'test.mdx'], { from: 'user' })
 
     expect(compile).toHaveBeenCalled()
     expect(consoleSpy).toHaveBeenCalledWith('Compilation completed successfully')
   })
 
-  it('should handle deploy-platform command with valid input', async () => {
+  it('should have deploy-platform command', async () => {
     const { deployPlatform } = await import('../deploy/platform')
     const consoleSpy = vi.spyOn(console, 'log')
 
-    await program.parse([
+    await program.parseAsync([
       'node', 'test', 'deploy-platform', 'worker.js',
       '--name', 'test-worker',
       '--account-id', 'account123',
@@ -92,11 +98,11 @@ describe('CLI', () => {
     expect(consoleSpy).toHaveBeenCalledWith('Deployed successfully using Platform API')
   })
 
-  it('should handle deploy-wrangler command with valid input', async () => {
+  it('should have deploy-wrangler command', async () => {
     const { deployWrangler } = await import('../deploy/wrangler')
     const consoleSpy = vi.spyOn(console, 'log')
 
-    await program.parse([
+    await program.parseAsync([
       'node', 'test', 'deploy-wrangler', 'worker.js',
       '--name', 'test-worker'
     ], { from: 'user' })
