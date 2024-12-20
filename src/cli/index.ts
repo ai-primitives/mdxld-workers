@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { Command } from 'commander'
-import { compile } from '../compiler'
+import { compile, type CompileOptions } from '../compiler'
 import { deployPlatform } from '../deploy/platform'
 import { deployWrangler } from '../deploy/wrangler'
 import type { PlatformConfig } from '../deploy/types'
@@ -12,14 +12,24 @@ export let exit = process.exit
 // Configure process.exit for testing
 if (process.env.NODE_ENV === 'test') {
   exit = ((code?: number) => {
-    throw new Error(`process.exit called with "${code}"`)
+    throw new Error(`process.exit called with code ${code}`)
   }) as never
 }
 
-export const program = new Command()
+// Default compile options
+const defaultCompileOptions: CompileOptions = {
+  jsx: {
+    importSource: 'hono/jsx',
+    runtime: 'react-jsx'
+  },
+  worker: {
+    name: 'mdxld-worker',
+    compatibilityDate: new Date().toISOString().split('T')[0]
+  }
+}
 
 // Configure program
-program
+export const program = new Command()
   .name('mdxld-workers')
   .description('CLI to compile and deploy MDXLD files to Cloudflare Workers')
   .version(version, '-v, --version')
@@ -40,14 +50,23 @@ program.exitOverride((err) => {
   throw err
 })
 
-// Add commands
 program
   .command('compile')
   .argument('<input>', 'Input MDXLD file')
+  .option('--name <name>', 'Worker name', defaultCompileOptions.worker.name)
+  .option('--routes <routes...>', 'Worker routes')
   .description('Compile MDXLD file to Cloudflare Worker')
-  .action(async (input: string) => {
+  .action(async (input: string, options: any) => {
     try {
-      await compile(input)
+      const compileOptions: CompileOptions = {
+        ...defaultCompileOptions,
+        worker: {
+          ...defaultCompileOptions.worker,
+          name: options.name,
+          routes: options.routes
+        }
+      }
+      await compile(input, compileOptions)
       console.log('Compilation completed successfully')
     } catch (err) {
       console.error(err instanceof Error ? err.message : 'Compilation failed')
