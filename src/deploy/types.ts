@@ -6,8 +6,8 @@ export interface WorkerConfig {
 
 export interface CompileOptions {
   jsx: {
-    importSource: string
-    runtime: string
+    importSource: 'hono/jsx'
+    runtime: 'react-jsx'
   }
   worker: WorkerConfig
 }
@@ -32,9 +32,6 @@ export interface WranglerOptions {
   compatibilityDate?: string
 }
 
-export interface WranglerConfig {
-  name: string
-  routes?: string[]
-  compatibilityDate: string
+export interface WranglerConfig extends WorkerConfig {
   env?: Record<string, string>
 }

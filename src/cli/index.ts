@@ -1,16 +1,13 @@
 #!/usr/bin/env node
 import { Command } from 'commander'
-import { compile, type CompileOptions } from '../compiler'
+import { compile } from '../compiler'
 import { deployPlatform } from '../deploy/platform'
 import { deployWrangler } from '../deploy/wrangler'
 import { version } from '../../package.json'
-import type { PlatformConfig, PlatformOptions, WranglerOptions, WranglerConfig } from '../deploy/types'
+import type { CompileOptions, PlatformConfig, PlatformOptions, WranglerOptions, WranglerConfig, WorkerConfig } from '../deploy/types'
 
 // Export for testing
-export const exit = (code: number): never => {
-  process.exit(code)
-  throw new Error('Unreachable') // TypeScript needs this
-}
+const exit = process.exit
 
 // Create and configure program
 export const program = new Command()
