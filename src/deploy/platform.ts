@@ -1,3 +1,5 @@
+/// <reference types="@cloudflare/workers-types" />
+
 // Platform API deployment utilities
 
 /**
