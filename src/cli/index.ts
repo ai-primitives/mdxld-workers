@@ -19,7 +19,7 @@ const exit = process.exit
 export const program = new Command()
   .name('mdxld-workers')
   .description('CLI to compile and deploy MDXLD files to Cloudflare Workers')
-  .version(version, '-v, --version')
+  .version(version, '-v, --version', 'output the current version')
   .addHelpCommand()
   .showHelpAfterError()
   .action(() => {
@@ -36,6 +36,11 @@ program
 
 // Override exit behavior for testing
 program.exitOverride((err) => {
+  if (err.code === 'commander.version') {
+    console.log(version)
+  } else if (err.code === 'commander.help' || err.code === 'commander.helpDisplayed') {
+    program.outputHelp()
+  }
   throw new Error('process.exit unexpectedly called with "0"')
 })
 
