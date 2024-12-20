@@ -1,13 +1,13 @@
 {
-  "name": "package-template",
+  "name": "mdxld-workers",
   "version": "0.1.0",
-  "description": "A modern TypeScript package template with Vitest, Prettier, ESLint, and semantic versioning",
+  "description": "Compile and deploy MDXLD files to Cloudflare Workers",
   "type": "module",
   "main": "dist/index.js",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "package-template": "bin/cli.js"
+    "mdxld-workers": "bin/cli.js"
   },
   "files": [
     "dist",
@@ -22,20 +22,33 @@
     "prepublishOnly": "pnpm run build"
   },
   "keywords": [
-    "typescript",
-    "template",
-    "package",
-    "cli"
+    "mdxld",
+    "cloudflare",
+    "workers",
+    "mdx",
+    "compiler",
+    "deployment"
   ],
   "author": "AI Primitives",
   "license": "MIT",
   "homepage": "https://mdx.org.ai",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ai-primitives/package-template.git"
+    "url": "git+https://github.com/ai-primitives/mdxld-workers.git"
   },
   "bugs": {
-    "url": "https://github.com/ai-primitives/package-template/issues"
+    "url": "https://github.com/ai-primitives/mdxld-workers/issues"
+  },
+  "dependencies": {
+    "@cloudflare/workers-types": "^4.20240208.0",
+    "@mdx-js/mdx": "^3.0.0",
+    "@mdx-js/react": "^3.0.0",
+    "esbuild": "^0.20.0",
+    "execa": "^8.0.1",
+    "hono": "^4.0.0",
+    "mdxld": "^0.1.2",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
@@ -43,12 +56,15 @@
     "@semantic-release/github": "^11.0.1",
     "@semantic-release/npm": "^12.0.1",
     "@semantic-release/release-notes-generator": "^14.0.1",
+    "@types/commander": "^2.12.5",
     "@types/node": "^22.10.2",
     "@typescript-eslint/eslint-plugin": "^8.18.0",
     "@typescript-eslint/parser": "^8.18.0",
+    "commander": "^12.1.0",
     "eslint": "^9.17.0",
     "prettier": "^3.4.2",
     "semantic-release": "^24.2.0",
+    "tsup": "^8.3.5",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
   }
