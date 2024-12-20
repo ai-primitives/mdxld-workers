@@ -19,10 +19,10 @@ const exit = process.exit
 export const program = new Command()
   .name('mdxld-workers')
   .description('CLI to compile and deploy MDXLD files to Cloudflare Workers')
+  .version(version, '-v, --version', 'output the version number')
 
 // Configure version and help
 program
-  .version(version, '-v, --version', 'output the version number')
   .configureHelp({
     helpWidth: 80,
     sortSubcommands: true,
@@ -32,7 +32,10 @@ program
 
 // Override exit behavior for testing
 program.exitOverride((err) => {
-  throw new Error(`process.exit unexpectedly called with "${err.exitCode}"`)
+  if (err.code === 'commander.version' || err.code === 'commander.help') {
+    throw new Error('process.exit unexpectedly called with "0"')
+  }
+  throw err
 })
 
 // Add listener for version and help output
@@ -132,7 +135,6 @@ program
     }
   })
 
-// Add deploy-wrangler command
 program
   .command('deploy-wrangler')
   .description('Deploy worker using Wrangler')
@@ -153,10 +155,8 @@ program
     }
   })
 
-// Run CLI
 if (typeof require !== 'undefined' && require.main === module) {
   program.parseAsync(process.argv).catch((err) => {
-    // Let Commander handle help text display and exit
     if (err instanceof Error && err.message.includes('process.exit unexpectedly called')) {
       throw err
     }
