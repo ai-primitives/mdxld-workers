@@ -101,11 +101,11 @@ describe('CLI', () => {
     expect(deployPlatform).toHaveBeenCalledWith(
       'worker.js',
       'test-worker',
-      expect.objectContaining({
+      {
         namespace: 'test',
         accountId: 'test-account',
         apiToken: 'test-token'
-      })
+      }
     )
     expect(logSpy).toHaveBeenCalledWith('Platform deployment completed successfully')
   })
