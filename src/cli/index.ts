@@ -31,12 +31,16 @@ program
   .name('mdxld-workers')
   .description('CLI to compile and deploy MDXLD files to Cloudflare Workers')
   .version(version, '-V, --version', 'output the version number')
+  .showHelpAfterError()
+  .addHelpCommand()
+  .showSuggestionAfterError()
 
 // Show help by default if no command is provided
-if (!process.argv.slice(2).length) {
-  program.outputHelp()
-  process.exit(0)
-}
+program.hook('preAction', () => {
+  if (!process.argv.slice(2).length) {
+    program.help()
+  }
+})
 
 program
   .command('compile')
@@ -134,6 +138,6 @@ program
 if (require.main === module) {
   program.parseAsync().catch((err) => {
     console.error(err)
-    process.exit(1)
+    process.exitCode = 1
   })
 }
