@@ -7,7 +7,7 @@ vi.mock('./index', async () => {
   return {
     ...actual,
     exit: vi.fn((code?: number) => {
-      throw new Error(`Exit called with code ${code}`)
+      throw new Error(`process.exit unexpectedly called with "${code}"`)
     })
   }
 })
@@ -49,7 +49,7 @@ describe('CLI', () => {
   it('should show version when --version flag is used', async () => {
     await expect(async () => {
       await program.parseAsync(['node', 'cli.js', '--version'])
-    }).rejects.toThrow('Exit called with code 0')
+    }).rejects.toThrow('process.exit unexpectedly called with "0"')
 
     expect(logSpy).toHaveBeenCalledWith(version)
     expect(exitSpy).toHaveBeenCalledWith(0)
@@ -58,7 +58,7 @@ describe('CLI', () => {
   it('should show help when --help flag is used', async () => {
     await expect(async () => {
       await program.parseAsync(['node', 'cli.js', '--help'])
-    }).rejects.toThrow('Exit called with code 0')
+    }).rejects.toThrow('process.exit unexpectedly called with "0"')
 
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Usage:'))
     expect(exitSpy).toHaveBeenCalledWith(0)
@@ -67,7 +67,7 @@ describe('CLI', () => {
   it('should show help when no command is provided', async () => {
     await expect(async () => {
       await program.parseAsync(['node', 'cli.js'])
-    }).rejects.toThrow('Exit called with code 0')
+    }).rejects.toThrow('process.exit unexpectedly called with "0"')
 
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Usage:'))
     expect(exitSpy).toHaveBeenCalledWith(0)
