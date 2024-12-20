@@ -3,7 +3,8 @@
     "browser": true,
     "es2021": true,
     "node": true,
-    "webextensions": true
+    "webextensions": true,
+    "worker": true
   },
   "extends": [
     "eslint:recommended",
@@ -17,5 +18,8 @@
   "plugins": ["@typescript-eslint"],
   "rules": {
     "no-undef": "error"
+  },
+  "globals": {
+    "globalThis": "readonly"
   }
 }
