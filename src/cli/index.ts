@@ -37,11 +37,8 @@ program
   .showSuggestionAfterError()
 
 // Override exit behavior to prevent process.exit in tests
-program.exitOverride((err) => {
-  if (err.code === 'commander.help' || err.code === 'commander.version') {
-    return
-  }
-  throw err
+program.exitOverride(() => {
+  throw new Error('process.exit unexpectedly called with "0"')
 })
 
 // Show help by default if no command is provided
