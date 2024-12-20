@@ -56,9 +56,9 @@
     - Location: src/cli/index.test.ts
     - Cause: Commander.js calling process.exit() in test environment
     - Solution:
-      1. Update error message format to match test expectations
-      2. Replace process.exit() with process.exitCode in CLI handlers
-      3. Remove unnecessary { from: 'user' } from parseAsync calls
+      1. Use process.exit(0) directly for help output
+      2. Update main module check to use parseAsync with proper error handling
+      3. Remove custom exit code handling for version and help flags
     - Implementation:
       ```typescript
       // Test implementation

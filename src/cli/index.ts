@@ -33,9 +33,9 @@ program
   .version(version, '-V, --version', 'output the version number')
 
 // Show help by default if no command is provided
-if (process.argv.length < 3) {
+if (!process.argv.slice(2).length) {
   program.outputHelp()
-  process.exitCode = 0
+  process.exit(0)
 }
 
 program
@@ -132,8 +132,8 @@ program
 
 // Only parse arguments if this is the main module
 if (require.main === module) {
-  program.parse()
-  if (!process.exitCode) {
-    process.exitCode = 0
-  }
+  program.parseAsync().catch((err) => {
+    console.error(err)
+    process.exit(1)
+  })
 }
