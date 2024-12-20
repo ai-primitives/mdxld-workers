@@ -27,17 +27,6 @@ interface DeployWranglerOptions {
 
 export const program = new Command()
 
-// Override exit behavior to prevent process.exit in tests
-program.exitOverride((err) => {
-  // Handle help and version commands (exit code 0)
-  if (err.code === 'commander.help' || err.code === 'commander.version') {
-    throw new Error('process.exit unexpectedly called with "0"')
-  }
-
-  // Handle other errors with exit code 1
-  throw new Error('process.exit unexpectedly called with "1"')
-})
-
 // Configure program with help and version handling
 program
   .name('mdxld-workers')
@@ -47,6 +36,29 @@ program
   .showHelpAfterError()
   .addHelpCommand()
   .showSuggestionAfterError()
+
+// Capture output for version and help commands
+const originalConsoleLog = console.log
+console.log = (...args: any[]) => {
+  originalConsoleLog.apply(console, args)
+}
+
+// Override exit behavior to prevent process.exit in tests
+program.exitOverride((err) => {
+  // Handle help and version commands (exit code 0)
+  if (err.code === 'commander.help' || err.code === 'commander.version') {
+    throw new Error('process.exit unexpectedly called with "0"')
+  }
+
+  // Handle unknown options and commands (exit code 1)
+  if (err.code === 'commander.unknownOption' || err.code === 'commander.unknownCommand') {
+    console.error(err.message)
+    throw new Error('process.exit unexpectedly called with "1"')
+  }
+
+  // Handle other errors with exit code 1
+  throw new Error('process.exit unexpectedly called with "1"')
+})
 
 // Show help by default if no command is provided
 if (process.argv.length === 2) {
