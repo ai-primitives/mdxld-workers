@@ -1,6 +1,28 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { program, parseArgs } from './index'
 
+// Mock dependencies before importing tested module
+vi.mock('../compiler', () => ({
+  compile: vi.fn().mockResolvedValue('compiled-worker')
+}))
+
+vi.mock('../deploy/platform', () => ({
+  deployPlatform: vi.fn().mockResolvedValue(undefined)
+}))
+
+vi.mock('../deploy/wrangler', () => ({
+  deployWrangler: vi.fn().mockResolvedValue(undefined)
+}))
+
+vi.mock('node:fs/promises', () => ({
+  default: {
+    readFile: vi.fn().mockResolvedValue('test content'),
+    writeFile: vi.fn().mockResolvedValue(undefined),
+    mkdir: vi.fn().mockResolvedValue(undefined),
+    stat: vi.fn().mockResolvedValue({ isDirectory: () => false })
+  }
+}))
+
 describe('CLI', () => {
   // Mock process.exit to prevent tests from terminating
   const mockExit = vi.spyOn(process, 'exit').mockImplementation((code?: string | number | null | undefined): never => {
@@ -48,14 +70,13 @@ describe('CLI', () => {
   })
 
   it('should handle compile command with valid input', async () => {
-    const mockCompile = vi.fn().mockResolvedValue('compiled-worker')
-    vi.mock('../compiler', () => ({ compile: mockCompile }))
-
+    const { compile } = await import('../compiler')
     await expect(parseArgs(['compile', 'test.mdx'])).rejects.toThrow()
-    expect(mockCompile).toHaveBeenCalled()
+    expect(compile).toHaveBeenCalled()
   })
 
   it('should handle deploy-platform command with valid input', async () => {
+    const { deployPlatform } = await import('../deploy/platform')
     await expect(
       parseArgs([
         'deploy-platform',
@@ -66,10 +87,11 @@ describe('CLI', () => {
         '--api-token', 'token123'
       ])
     ).rejects.toThrow()
-    expect(mockExit).toHaveBeenCalledWith(0)
+    expect(deployPlatform).toHaveBeenCalled()
   })
 
   it('should handle deploy-wrangler command with valid input', async () => {
+    const { deployWrangler } = await import('../deploy/wrangler')
     await expect(
       parseArgs([
         'deploy-wrangler',
@@ -77,6 +99,6 @@ describe('CLI', () => {
         '--name', 'test-worker'
       ])
     ).rejects.toThrow()
-    expect(mockExit).toHaveBeenCalledWith(0)
+    expect(deployWrangler).toHaveBeenCalled()
   })
 })
