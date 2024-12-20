@@ -25,12 +25,11 @@ interface DeployWranglerOptions {
   config?: string
 }
 
-// Mock process.exit in test environment before any other code runs
+// Mock process.exit in test environment
 if (process.env.NODE_ENV === 'test') {
-  const mockExit = (code: number) => {
+  process.exit = ((code?: number) => {
     throw new Error(`process.exit unexpectedly called with "${code}"`)
-  }
-  process.exit = mockExit as never
+  }) as never
 }
 
 export const program = new Command()
@@ -42,24 +41,10 @@ program
   .version(version, '-v, --version')
   .helpOption('-h, --help')
 
-// Override exit behavior for testing
-program.exitOverride((err) => {
-  if (err.code === 'commander.help' ||
-      err.code === 'commander.helpDisplayed' ||
-      err.code === 'commander.missingArgument') {
-    console.log(program.helpInformation())
-    process.exit(0)
-  }
-  if (err.code === 'commander.version') {
-    console.log(version)
-    process.exit(0)
-  }
-  throw err
-})
-
 // Add commands
 program
-  .command('compile <input>')
+  .command('compile')
+  .argument('<input>', 'Input MDXLD file')
   .description('Compile MDXLD file to Cloudflare Worker')
   .option('-o, --output <dir>', 'output directory', 'dist')
   .action(async (input, options) => {
@@ -73,12 +58,13 @@ program
   })
 
 program
-  .command('deploy-platform <worker>')
-  .description('Deploy worker using Cloudflare Platform API')
+  .command('deploy-platform')
+  .argument('<worker>', 'Worker file to deploy')
   .requiredOption('--name <name>', 'worker name')
   .requiredOption('--account-id <id>', 'Cloudflare account ID')
   .requiredOption('--namespace <namespace>', 'worker namespace')
   .requiredOption('--api-token <token>', 'Cloudflare API token')
+  .description('Deploy worker using Cloudflare Platform API')
   .action(async (worker, options) => {
     try {
       const config: PlatformConfig = {
@@ -95,9 +81,10 @@ program
   })
 
 program
-  .command('deploy-wrangler <worker>')
-  .description('Deploy worker using Wrangler')
+  .command('deploy-wrangler')
+  .argument('<worker>', 'Worker file to deploy')
   .requiredOption('--name <name>', 'worker name')
+  .description('Deploy worker using Wrangler')
   .action(async (worker, options) => {
     try {
       await deployWrangler(worker, options)
@@ -108,10 +95,26 @@ program
     }
   })
 
+// Handle help and version commands
+program.exitOverride()
+
 // Run CLI
 if (require.main === module) {
   program.parseAsync(process.argv).catch((err) => {
-    console.error(err.message)
-    process.exit(1)
+    if (err instanceof CommanderError) {
+      if (err.code === 'commander.help' || err.code === 'commander.helpDisplayed') {
+        console.log(program.helpInformation())
+        process.exit(0)
+      }
+      if (err.code === 'commander.version') {
+        console.log(version)
+        process.exit(0)
+      }
+      console.error(err.message)
+      process.exit(err.exitCode ?? 1)
+    } else {
+      console.error(err instanceof Error ? err.message : 'An unknown error occurred')
+      process.exit(1)
+    }
   })
 }
