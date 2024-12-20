@@ -16,7 +16,6 @@ export interface PlatformConfig {
   accountId: string
   namespace: string
   apiToken: string
-  name: string
 }
 
 export interface PlatformOptions {

@@ -33,7 +33,7 @@ program.exitOverride((err) => {
     } else {
       console.log(program.helpInformation())
     }
-    process.exit(0)
+    exit(0)
   }
   throw err
 })
@@ -91,12 +91,11 @@ program
   .action(async (worker: string, options: PlatformOptions) => {
     try {
       const config: PlatformConfig = {
-        namespace: options.namespace || options.name, // Use name as fallback for namespace
+        namespace: options.namespace || 'default', // Provide default namespace if undefined
         accountId: options.accountId,
-        apiToken: options.apiToken,
-        name: options.name
+        apiToken: options.apiToken
       }
-      await deployPlatform(worker, config)
+      await deployPlatform(worker, options.name, config)
       console.log('Platform deployment completed successfully')
     } catch (err) {
       console.error(err instanceof Error ? err.message : 'Deployment failed')

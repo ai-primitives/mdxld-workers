@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { version } from '../../package.json'
+import type { CompileOptions, PlatformConfig, WranglerConfig } from '../deploy/types'
 
 // Setup spies before importing program
 const exitSpy = vi.spyOn(process, 'exit').mockImplementation(function mockExit(code?: number | string | null | undefined): never {
@@ -9,7 +10,7 @@ const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
 // Mock compiler module before importing program
 vi.mock('../compiler', () => ({
-  compile: vi.fn().mockImplementation(async (input: string, options: any) => {
+  compile: vi.fn().mockImplementation(async (input: string, options: CompileOptions) => {
     console.log('Mocked compile called with:', input, options)
     return Promise.resolve(undefined)
   })
