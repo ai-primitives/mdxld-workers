@@ -36,12 +36,17 @@ program
 
 // Override exit behavior to prevent process.exit in tests
 program.exitOverride((err) => {
-  if (err.code === 'commander.help' || err.code === 'commander.helpDisplayed') {
+  if (err.code === 'commander.helpDisplayed') {
+    console.log(program.helpInformation())
     throw new Error('process.exit unexpectedly called with "0"')
   }
   if (err.code === 'commander.version') {
     console.log(version)
     throw new Error('process.exit unexpectedly called with "0"')
+  }
+  if (err.code === 'commander.unknownOption' || err.code === 'commander.unknownCommand') {
+    console.error(err.message)
+    throw new Error('process.exit unexpectedly called with "1"')
   }
   throw new Error('process.exit unexpectedly called with "1"')
 })
@@ -112,7 +117,10 @@ if (require.main === module) {
     process.exit(1)
   })
 } else {
-  // When imported as a module (for testing), show help by default if no command is provided
-  program.showHelpAfterError()
+  // When imported as a module (for testing), let Commander handle help display
+  if (process.argv.length === 2) {
+    console.log(program.helpInformation())
+    throw new Error('process.exit unexpectedly called with "0"')
+  }
   program.parse(process.argv)
 }
