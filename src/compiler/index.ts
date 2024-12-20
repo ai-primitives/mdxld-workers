@@ -74,7 +74,6 @@ export async function compile(source: string, options: CompileOptions): Promise<
   try {
     // Parse MDXLD content
     const mdxld = parse(source)
-    const ast = parseAST(source)
 
     // Extract worker metadata
     const metadata = extractWorkerMetadata(mdxld)
