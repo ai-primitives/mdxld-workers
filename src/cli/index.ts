@@ -27,23 +27,37 @@ interface DeployWranglerOptions {
 
 export const program = new Command()
 
+// Configure program with help and version handling
 program
   .name('mdxld-workers')
   .description('CLI to compile and deploy MDXLD files to Cloudflare Workers')
   .version(version, '-V, --version', 'output the version number')
+  .showHelpAfterError()
+  .addHelpCommand()
+  .showSuggestionAfterError()
 
-// Override exit behavior for help and version commands
-program.exitOverride((err) => {
-  if (err.code === 'commander.helpDisplayed' || err.code === 'commander.version') {
-    process.exit(0)
-  }
-  throw err
+// Handle help and version commands with exit code 0
+program.on('--help', () => {
+  process.exit(0)
+})
+
+program.on('--version', () => {
+  process.exit(0)
 })
 
 // Show help by default if no command is provided
-if (!process.argv.slice(2).length) {
-  program.help()
-}
+program.hook('preAction', () => {
+  if (!process.argv.slice(2).length) {
+    program.outputHelp()
+    process.exit(0)
+  }
+})
+
+// Handle unknown options and error cases
+program.on('command:*', () => {
+  console.error('Invalid command: %s\nSee --help for a list of available commands.', program.args.join(' '))
+  process.exit(1)
+})
 
 program
   .command('compile')
