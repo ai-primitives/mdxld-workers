@@ -45,7 +45,7 @@ describe('CLI', () => {
   it('should show version when --version flag is used', async () => {
     await expect(async () => {
       await program.parseAsync(['node', 'cli.js', '--version'])
-    }).rejects.toThrow('process.exit called with 0')
+    }).rejects.toThrow('process.exit unexpectedly called with "0"')
 
     expect(logSpy).toHaveBeenCalledWith(version)
     expect(exitSpy).toHaveBeenCalledWith(0)
@@ -54,7 +54,7 @@ describe('CLI', () => {
   it('should show help when --help flag is used', async () => {
     await expect(async () => {
       await program.parseAsync(['node', 'cli.js', '--help'])
-    }).rejects.toThrow('process.exit called with 0')
+    }).rejects.toThrow('process.exit unexpectedly called with "0"')
 
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Usage:'))
     expect(exitSpy).toHaveBeenCalledWith(0)
@@ -63,7 +63,7 @@ describe('CLI', () => {
   it('should show help when no command is provided', async () => {
     await expect(async () => {
       await program.parseAsync(['node', 'cli.js'])
-    }).rejects.toThrow('process.exit called with 0')
+    }).rejects.toThrow('process.exit unexpectedly called with "0"')
 
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Usage:'))
     expect(exitSpy).toHaveBeenCalledWith(0)
