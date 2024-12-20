@@ -43,7 +43,7 @@ describe('CLI', () => {
     const consoleSpy = vi.spyOn(console, 'log')
 
     await expect(async () => {
-      await program.parseAsync(['node', 'test', '--version'])
+      await program.parseAsync(['--version'])
     }).rejects.toThrow('process.exit unexpectedly called with "0"')
 
     expect(consoleSpy).toHaveBeenCalled()
@@ -54,7 +54,7 @@ describe('CLI', () => {
     const consoleSpy = vi.spyOn(console, 'log')
 
     await expect(async () => {
-      await program.parseAsync(['node', 'test', '--help'])
+      await program.parseAsync(['--help'])
     }).rejects.toThrow('process.exit unexpectedly called with "0"')
 
     expect(consoleSpy).toHaveBeenCalled()
@@ -65,7 +65,7 @@ describe('CLI', () => {
     const consoleSpy = vi.spyOn(console, 'log')
 
     await expect(async () => {
-      await program.parseAsync(['node', 'test'])
+      await program.parseAsync([])
     }).rejects.toThrow('process.exit unexpectedly called with "0"')
 
     expect(consoleSpy).toHaveBeenCalled()
@@ -76,7 +76,7 @@ describe('CLI', () => {
     const { compile } = await import('../compiler')
     const consoleSpy = vi.spyOn(console, 'log')
 
-    await program.parseAsync(['node', 'test', 'compile', 'test.mdx'], { from: 'user' })
+    await program.parseAsync(['compile', 'test.mdx'])
 
     expect(compile).toHaveBeenCalled()
     expect(consoleSpy).toHaveBeenCalledWith('Compilation completed successfully')
@@ -87,12 +87,12 @@ describe('CLI', () => {
     const consoleSpy = vi.spyOn(console, 'log')
 
     await program.parseAsync([
-      'node', 'test', 'deploy-platform', 'worker.js',
+      'deploy-platform', 'worker.js',
       '--name', 'test-worker',
       '--account-id', 'account123',
       '--namespace', 'test-ns',
       '--api-token', 'token123'
-    ], { from: 'user' })
+    ])
 
     expect(deployPlatform).toHaveBeenCalled()
     expect(consoleSpy).toHaveBeenCalledWith('Deployed successfully using Platform API')
@@ -103,11 +103,10 @@ describe('CLI', () => {
     const consoleSpy = vi.spyOn(console, 'log')
 
     await program.parseAsync([
-      'node', 'test', 'deploy-wrangler', 'worker.js',
+      'deploy-wrangler', 'worker.js',
       '--name', 'test-worker'
-    ], { from: 'user' })
+    ])
 
     expect(deployWrangler).toHaveBeenCalled()
     expect(consoleSpy).toHaveBeenCalledWith('Deployed successfully using Wrangler')
   })
-})

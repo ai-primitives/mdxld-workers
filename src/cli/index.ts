@@ -30,7 +30,13 @@ export const program = new Command()
 program
   .name('mdxld-workers')
   .description('CLI to compile and deploy MDXLD files to Cloudflare Workers')
-  .version(version)
+  .version(version, '-V, --version', 'output the version number')
+
+// Show help by default if no command is provided
+if (process.argv.length < 3) {
+  program.outputHelp()
+  process.exitCode = 0
+}
 
 program
   .command('compile')
@@ -68,6 +74,7 @@ program
         )
       }
       console.log('Compilation completed successfully')
+      return
     } catch (error) {
       console.error('Compilation failed:', error)
       process.exitCode = 1
@@ -93,6 +100,7 @@ program
       }
       await deployPlatform(worker, options.name, config)
       console.log('Deployed successfully using Platform API')
+      return
     } catch (error) {
       console.error('Platform deployment failed:', error)
       process.exitCode = 1
@@ -114,6 +122,7 @@ program
         : undefined
       await deployWrangler(worker, options.name, config)
       console.log('Deployed successfully using Wrangler')
+      return
     } catch (error) {
       console.error('Wrangler deployment failed:', error)
       process.exitCode = 1
@@ -124,4 +133,7 @@ program
 // Only parse arguments if this is the main module
 if (require.main === module) {
   program.parse()
+  if (!process.exitCode) {
+    process.exitCode = 0
+  }
 }
