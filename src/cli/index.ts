@@ -118,4 +118,12 @@ program
     }
   })
 
-program.parse()
+// Only parse arguments if this is the main module
+if (require.main === module) {
+  program.parse()
+}
+
+// Export a function to parse arguments for testing
+export function parseArgs(args: string[] = []): void {
+  program.parse(['node', 'test', ...args], { from: 'user' })
+}
