@@ -23,9 +23,11 @@ program.exitOverride((err) => {
   if (err.code === 'commander.help' || err.code === 'commander.helpDisplayed') {
     console.log(program.helpInformation())
     exit(0)
+    throw new Error('process.exit unexpectedly called with "0"')
   } else if (err.code === 'commander.version') {
     console.log(version)
     exit(0)
+    throw new Error('process.exit unexpectedly called with "0"')
   }
   throw err
 })
