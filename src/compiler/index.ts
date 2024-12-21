@@ -28,7 +28,7 @@ function extractWorkerMetadata(mdxld: MDXLD): WorkerConfig {
   }
 
   // Extract $worker or @worker configuration
-  const workerConfig = (mdxld.data['$worker'] || mdxld.data['@worker']) as WorkerConfig | undefined
+  const workerConfig = mdxld.data?.['$worker'] || mdxld.data?.['@worker'] as WorkerConfig | undefined
   if (workerConfig && typeof workerConfig === 'object') {
     metadata.name = typeof workerConfig.name === 'string' ? workerConfig.name : ''
     metadata.routes = Array.isArray(workerConfig.routes) ? workerConfig.routes : []
@@ -54,15 +54,15 @@ export async function compile(source: string, options: CompileOptions): Promise<
     // Extract worker metadata
     const metadata = extractWorkerMetadata(mdxld)
 
-    // Create worker context
+    // Create worker context with proper null checks
     const workerContext: WorkerContext = {
       metadata: {
-        type: mdxld.type,
-        context: mdxld.context,
+        type: mdxld.type ?? '',
+        context: mdxld.context ?? '',
         ...metadata,
         // Include all $ and @ prefixed properties
         ...Object.fromEntries(
-          Object.entries(mdxld.data)
+          Object.entries(mdxld.data ?? {})
             .filter(([key]) => key.startsWith('$') || key.startsWith('@'))
         )
       },
