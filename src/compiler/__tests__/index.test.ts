@@ -24,41 +24,40 @@ describe('MDXLD Worker Compiler', () => {
       cleanJson = match
         // Remove newlines and normalize spaces
         .replace(/\s+/g, ' ')
-        // Preserve special characters in values
+        // Handle quoted string values
         .replace(/:\s*"([^"]*)"(\s*[,}\]])?/g, (_, value, end) => {
           return `:${JSON.stringify(value)}${end || ''}`
         })
-        // Handle unquoted property names
+        // Quote property names
         .replace(/([{,]\s*)([a-zA-Z$@][a-zA-Z0-9$@_]*)\s*:/g, '$1"$2":')
-        // Handle prefixed properties
-        .replace(/"([@$][^"]+)":/g, (_, key) => `"${key}":`)
-        // Handle boolean values
-        .replace(/:\s*(true|false)(\s*[,}\]])/g, ':$1$2')
-        // Handle numeric values
-        .replace(/:\s*(\d+(?:\.\d+)?)(\s*[,}\]])/g, ':$1$2')
-        // Handle arrays
-        .replace(/\[\s*([^\]]+)\s*\]/g, (_, content) => {
+        // Handle arrays with proper value handling
+        .replace(/\[\s*([^\]]*)\s*\]/g, (match, content) => {
+          if (!content.trim()) return '[]'
           const items = content.split(',').map((item: string) => {
             const trimmed = item.trim()
+            if (!trimmed) return ''
             if (trimmed.startsWith('"')) return trimmed
             if (trimmed === 'true' || trimmed === 'false' || !isNaN(Number(trimmed))) return trimmed
             return JSON.stringify(trimmed)
-          })
+          }).filter(Boolean)
           return `[${items.join(',')}]`
+        })
+        // Handle unquoted values
+        .replace(/:\s*([^",\s{}[\]]+)(\s*[,}\]])/g, (_, value, end) => {
+          const trimmed = value.trim()
+          if (trimmed === 'true' || trimmed === 'false' || !isNaN(Number(trimmed))) {
+            return `:${trimmed}${end}`
+          }
+          return `:${JSON.stringify(trimmed)}${end}`
         })
         // Fix object structure
         .replace(/}(\s*["{])/g, '},$1')
         .replace(/](\s*["{[])/g, '],$1')
         // Fix trailing commas
         .replace(/,(\s*[}\]])/g, '$1')
-        // Fix missing quotes in string values
-        .replace(/:\s*([^",\s{}[\]]+)(\s*[,}\]])/g, (_, value, end) => {
-          if (value === 'true' || value === 'false' || !isNaN(Number(value))) return `:${value}${end}`
-          return `:${JSON.stringify(value)}${end}`
-        })
 
       // Parse to validate and normalize
-      const parsed = JSON.parse(cleanJson.replace(/,\s*([}\]])/g, '$1'))
+      const parsed = JSON.parse(cleanJson)
 
       // Process metadata to handle prefixed properties
       if (parsed.metadata) {
@@ -66,20 +65,52 @@ describe('MDXLD Worker Compiler', () => {
           const result: Record<string, unknown> = {}
 
           for (const [key, value] of Object.entries(obj)) {
+            // Handle arrays
+            if (Array.isArray(value)) {
+              result[key] = value.map(item => 
+                item && typeof item === 'object' ? processObject(item as Record<string, unknown>) : item
+              )
+            }
             // Handle nested objects
-            if (value && typeof value === 'object' && !Array.isArray(value)) {
+            else if (value && typeof value === 'object') {
               result[key] = processObject(value as Record<string, unknown>)
-            } else {
+            }
+            // Handle primitive values
+            else {
               result[key] = value
             }
 
             // Handle prefixed properties
             if (key.startsWith('@') || key.startsWith('$')) {
               const baseKey = key.slice(1)
-              result[baseKey] = value
-              // Store both prefix versions
-              result[`@${baseKey}`] = value
-              result[`$${baseKey}`] = value
+              const otherPrefix = key.startsWith('@') ? '$' : '@'
+              
+              // Store unprefixed version
+              if (!result[baseKey]) {
+                result[baseKey] = value
+              }
+              
+              // Store both prefix versions for special fields
+              if (['type', 'id', 'context', 'list', 'vocab'].includes(baseKey)) {
+                result[`@${baseKey}`] = value
+                result[`$${baseKey}`] = value
+              }
+            }
+
+            // Special handling for context object
+            if ((key === 'context' || key === '@context' || key === '$context') && typeof value === 'object') {
+              const contextObj = value as Record<string, unknown>
+              const newContext: Record<string, unknown> = {}
+              
+              for (const [k, v] of Object.entries(contextObj)) {
+                if (k === 'vocab') {
+                  newContext['@vocab'] = v
+                } else {
+                  newContext[k] = v
+                }
+              }
+              
+              result.context = newContext
             }
           }
 
