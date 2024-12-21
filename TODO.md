@@ -40,6 +40,24 @@
     - Location: CI build step
     - Impact: Prevents package compilation
     - Resolution: Need to specify entry points in build configuration
+- [ ] Test Implementation Issues
+  - [ ] TypeError in Core Function Tests
+    - Issue: "TypeError: add is not a function"
+    - Location: src/index.test.ts:6:12
+    - Impact: Prevents test suite from passing
+    - Resolution: Need to implement or mock add function
+  - [ ] WORKER_CONTEXT Missing
+    - Issue: "Error: WORKER_CONTEXT not found in output"
+    - Location: src/compiler/__tests__/index.test.ts
+    - Impact: Multiple test failures in compiler tests
+    - Occurrences: Lines 32, 78, 104, 128, 160
+    - Resolution: Need to properly set up worker context in test environment
+  - [ ] YAML-LD Parsing Errors
+    - Issue: "Failed to parse YAML frontmatter: Plain value cannot start with reserved character @"
+    - Location: src/compiler/index.ts:98:11
+    - Impact: Prevents proper handling of YAML-LD metadata
+    - Details: @ prefix causing parser errors at line 2, column 1
+    - Resolution: Update YAML parser configuration to handle @ prefix correctly
 - [ ] Cloudflare Workers Integration
   - [ ] Verify Platform API access and permissions
   - [ ] Test worker deployment process
@@ -86,8 +104,6 @@
       - Configured output handling with configureOutput()
       - All CLI tests now passing
       - Help text properly captured in tests
-
-## Verification Requirements
 
 - [ ] Test Coverage
   - [ ] Unit tests for MDXLD compilation

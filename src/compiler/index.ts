@@ -58,34 +58,61 @@ export async function compile(source: string, options: CompileOptions): Promise<
     // Extract worker metadata
     const metadata = extractWorkerMetadata(mdxld)
 
-    // Create worker context with proper null checks
+    // Create worker context with proper null checks and handle @ prefix
     const workerContext: WorkerContext = {
       metadata: {
         type: mdxld.type ?? '',
         context: mdxld.context ?? '',
         ...metadata,
-        // Include all $ and @ prefixed properties
+        // Include all $ and @ prefixed properties, handling @ prefix properly
         ...Object.fromEntries(
           Object.entries(mdxld.data ?? {})
             .filter(([key]) => key.startsWith('$') || key.startsWith('@'))
+            .map(([key, value]) => {
+              // Remove prefix and handle quoted strings
+              const cleanKey = key.startsWith('@') ? key.slice(1) : key.slice(1)
+              const cleanValue = typeof value === 'string' && value.startsWith('@')
+                ? value.slice(1)
+                : value
+              return [cleanKey, cleanValue]
+            })
         )
       },
       content: mdxld.content
     }
 
-    // Bundle with esbuild
-    const result = await esbuild.build({
+    // Create worker script with proper WORKER_CONTEXT definition
+    const workerTemplate = await esbuild.build({
       entryPoints: [path.resolve(__dirname, '../templates/worker.ts')],
+      write: false,
+      bundle: true,
+      format: 'esm',
+      platform: 'browser'
+    })
+
+    if (!workerTemplate.outputFiles?.[0]) {
+      throw new Error('Failed to load worker template')
+    }
+
+    const templateCode = workerTemplate.outputFiles[0].text
+    const workerScript = `
+      const WORKER_CONTEXT = ${JSON.stringify(workerContext)};
+      ${templateCode}
+    `
+
+    // Bundle final worker
+    const result = await esbuild.build({
+      stdin: {
+        contents: workerScript,
+        loader: 'ts'
+      },
       bundle: true,
       write: false,
       format: 'esm',
       target: 'esnext',
       platform: 'browser',
       external: ['__STATIC_CONTENT_MANIFEST'],
-      metafile: true,
-      define: {
-        WORKER_CONTEXT: JSON.stringify(workerContext)
-      }
+      metafile: true
     })
 
     if (!result.outputFiles?.[0]) {
