@@ -61,29 +61,22 @@ export async function compile(source: string, options: CompileOptions): Promise<
     // Create worker context
     const workerContext: WorkerContext = {
       metadata: {
-        type: mdxld.type ?? '',
-        context: mdxld.context ?? '',
-        ...metadata,
-        // Include all $ and @ prefixed properties, handling quoted @ prefix
+        // Include worker metadata first
+        name: metadata.name,
+        ...(metadata.routes ? { routes: metadata.routes } : {}),
+        // Keep all prefixed properties at root level without modification
         ...Object.fromEntries(
           Object.entries(mdxld.data ?? {})
             .filter(([key]) => key.startsWith('$') || key.startsWith('@') || key.startsWith("'@") || key.startsWith('"@'))
             .map(([key, value]) => {
-              // Remove prefix and handle quoted strings
-              const cleanKey = key.replace(/^['"]?[@$]/, '')
-              // Handle nested objects with prefixed keys
-              if (value && typeof value === 'object' && !Array.isArray(value)) {
-                const processedValue = Object.fromEntries(
-                  Object.entries(value).map(([k, v]) => {
-                    const cleanK = k.replace(/^['"]?[@$]/, '')
-                    return [cleanK, v]
-                  })
-                )
-                return [cleanKey, processedValue]
-              }
+              // Handle quoted @ prefix by removing quotes
+              const cleanKey = key.replace(/^['"]/, '')
               return [cleanKey, value]
             })
-        )
+        ),
+        // Include type and context if not already set by prefixed properties
+        ...(mdxld.type && !mdxld.data?.['$type'] ? { '$type': mdxld.type } : {}),
+        ...(mdxld.context && !mdxld.data?.['$context'] ? { '$context': mdxld.context } : {})
       },
       content: mdxld.content
     }

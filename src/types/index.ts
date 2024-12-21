@@ -20,16 +20,12 @@ export interface MDXLD {
 export interface WorkerContext {
   /** Metadata including type, context, and frontmatter */
   metadata: {
-    /** Document type */
-    type: string
-    /** Document context */
-    context: string | Record<string, unknown>
+    /** Additional metadata including prefixed properties */
+    [key: string]: unknown
     /** Worker configuration */
     name: string
     /** Worker routes */
     routes?: string[]
-    /** Additional metadata */
-    [key: string]: unknown
   }
   /** Document content */
   content: string
