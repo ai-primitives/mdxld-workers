@@ -45,7 +45,7 @@
     "@cloudflare/workers-types": "^4.20240208.0",
     "@mdx-js/mdx": "^3.0.0",
     "@mdx-js/react": "^3.0.0",
-    "esbuild": "^0.19.0",
+    "esbuild": "^0.20.1",
     "execa": "^8.0.1",
     "hono": "^4.0.0",
     "mdxld": "^0.1.3",

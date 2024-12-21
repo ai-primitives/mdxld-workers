@@ -48,7 +48,7 @@
     - Resolution: Need to implement or mock add function
   - [ ] WORKER_CONTEXT Missing
     - Issue: "Error: WORKER_CONTEXT not found in output"
-    - Location: src/compiler/__tests__/index.test.ts
+    - Location: src/compiler/**tests**/index.test.ts
     - Impact: Multiple test failures in compiler tests
     - Occurrences: Lines 32, 78, 104, 128, 160
     - Resolution: Need to properly set up worker context in test environment
@@ -89,6 +89,7 @@
       - Error: Property 'routes' does not exist on type 'object'
     - Resolution: Need to update our MDXLD and WorkerConfig types to handle optional properties correctly
 - [x] Test Implementation
+
   - [x] Fix Vitest module mocking issues
     - [x] Move vi.mock() calls to top of file
     - [x] Properly import mocked functions in tests
@@ -121,6 +122,7 @@
 ## Deployment Status
 
 - [x] Package Setup
+
   - [x] Update package.json metadata
   - [x] Configure required dependencies
     - [x] Add @mdx-js/react
