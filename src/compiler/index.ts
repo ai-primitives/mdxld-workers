@@ -61,134 +61,50 @@ function extractWorkerMetadata(mdxld: MDXLD, options?: CompileOptions): WorkerCo
           ? processMetadata(value as Record<string, unknown>)
           : value
 
-      // Store prefixed and unprefixed versions at root level
+      // Store both prefixed and unprefixed versions
       if (prefix) {
-        // Always store original key with exact prefix
+        // Store original prefixed version
         result[cleanKey] = processedValue
-
-        // Store both @ and $ variants at root level
+        // Store unprefixed version
+        result[unprefixedKey] = processedValue
+        // Store alternate prefix version
         const otherPrefix = prefix === '@' ? '$' : '@'
-        result[`${prefix}${unprefixedKey}`] = processedValue
         result[`${otherPrefix}${unprefixedKey}`] = processedValue
-
-        // Special handling for common fields
-        if (['type', 'id', 'context'].includes(unprefixedKey)) {
-          result[unprefixedKey] = processedValue
-          // Ensure prefixed versions are at root level
-          result[`@${unprefixedKey}`] = processedValue
-          result[`$${unprefixedKey}`] = processedValue
-        }
-
-        // Special handling for nested context properties
-        if (unprefixedKey === 'context' && typeof processedValue === 'object') {
-          const contextObj = processedValue as Record<string, unknown>
-          // Create a new context object preserving all properties
-          const newContext: Record<string, unknown> = {}
-
-          // First, copy existing context if any
-          if (result.context && typeof result.context === 'object') {
-            Object.assign(newContext, result.context as Record<string, unknown>)
-          }
-
-          // Then add all properties from the new context
-          Object.entries(contextObj).forEach(([k, v]) => {
-            // For vocab, ensure it's preserved with @ prefix
-            if (k === 'vocab') {
-              newContext['@vocab'] = v
-              delete newContext.vocab
-            } else if (k.startsWith('@')) {
-              // Preserve existing @ prefixes
-              newContext[k] = v
-            } else {
-              newContext[k] = v
-            }
-          })
-
-          result.context = newContext
-        }
-
-        // Special handling for list metadata
-        if (unprefixedKey === 'list') {
-          result.list = Array.isArray(processedValue) ? processedValue : [processedValue]
-        }
-
-        // Special handling for nested metadata
-        if (unprefixedKey === 'nested' && typeof processedValue === 'object') {
-          const nestedObj = processedValue as Record<string, unknown>
-          // Process nested prefixed properties
-          const processedNested: Record<string, unknown> = {}
-          Object.entries(nestedObj).forEach(([k, v]) => {
-            if (k.startsWith('@') || k.startsWith('$')) {
-              const unprefixedNestedKey = k.slice(1)
-              processedNested[unprefixedNestedKey] = v
-              // Preserve prefixed versions in nested objects
-              processedNested[k] = v
-            } else {
-              processedNested[k] = v
-            }
-          })
-          result.nested = processedNested
-        }
+      } else {
+        // Store original unprefixed version
+        result[cleanKey] = processedValue
       }
 
-      // Always store prefixed properties at root level
-      if (cleanKey.startsWith('@') || cleanKey.startsWith('$')) {
-        const unprefixedKey = cleanKey.slice(1)
-        result[cleanKey] = processedValue
-        // Store both prefixed versions at root level
-        result[`@${unprefixedKey}`] = processedValue
-        result[`$${unprefixedKey}`] = processedValue
-        // Also store unprefixed version
-        result[unprefixedKey] = processedValue
-      } else {
-        result[cleanKey] = processedValue
+      // Special handling for context object
+      if ((cleanKey === 'context' || cleanKey === '@context' || cleanKey === '$context') && typeof processedValue === 'object') {
+        const contextObj = processedValue as Record<string, unknown>
+        const newContext: Record<string, unknown> = {}
+
+        // Process context properties
+        Object.entries(contextObj).forEach(([k, v]) => {
+          if (k === 'vocab') {
+            newContext['@vocab'] = v
+          } else if (k.startsWith('@') || k.startsWith('$')) {
+            // Preserve prefixed properties
+            newContext[k] = v
+          } else {
+            newContext[k] = v
+          }
+        })
+
+        result.context = newContext
       }
 
       // Special handling for worker configuration
-      if (cleanKey === 'worker' || cleanKey === '$worker' || cleanKey === '@worker') {
-        const config = value as Record<string, unknown>
+      if (cleanKey === 'worker' || cleanKey === '@worker' || cleanKey === '$worker') {
+        const config = processedValue as Record<string, unknown>
         if (config?.name) result.name = config.name
         if (config?.routes) result.routes = config.routes
       }
 
-      // Special handling for context object
-      if (cleanKey === 'context' || cleanKey === '$context' || cleanKey === '@context') {
-        if (typeof processedValue === 'object') {
-          const contextObj = processedValue as Record<string, unknown>
-          const newContext: Record<string, unknown> = { ...contextObj }
-
-          // Ensure @vocab is preserved
-          if (contextObj.vocab) {
-            newContext['@vocab'] = contextObj.vocab
-            delete newContext.vocab
-          } else if (contextObj['@vocab']) {
-            newContext['@vocab'] = contextObj['@vocab']
-          }
-
-          // Preserve any other prefixed properties
-          Object.entries(contextObj).forEach(([k, v]) => {
-            if (k.startsWith('@') || k.startsWith('$')) {
-              newContext[k] = v
-              // Store both prefixed versions
-              const unprefixedKey = k.slice(1)
-              newContext[`@${unprefixedKey}`] = v
-              newContext[`$${unprefixedKey}`] = v
-            }
-          })
-
-          result.context = newContext
-        } else {
-          result.context = processedValue
-        }
-      }
-
-      // Ensure prefixed properties are always preserved at root level
-      if (prefix) {
-        const prefixedKey = `${prefix}${unprefixedKey}`
-        result[prefixedKey] = processedValue
-        // Store both prefixed versions
-        result[`@${unprefixedKey}`] = processedValue
-        result[`$${unprefixedKey}`] = processedValue
+      // Special handling for list metadata
+      if (cleanKey === 'list' || cleanKey === '@list' || cleanKey === '$list') {
+        result.list = Array.isArray(processedValue) ? processedValue : [processedValue]
       }
     }
 

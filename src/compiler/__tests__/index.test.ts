@@ -58,7 +58,7 @@ describe('MDXLD Worker Compiler', () => {
         })
 
       // Parse to validate and normalize
-      const parsed = JSON.parse(cleanJson)
+      const parsed = JSON.parse(cleanJson.replace(/,\s*([}\]])/g, '$1'))
 
       // Process metadata to handle prefixed properties
       if (parsed.metadata) {
@@ -73,12 +73,13 @@ describe('MDXLD Worker Compiler', () => {
               result[key] = value
             }
 
-            // Handle prefixed properties at root level
+            // Handle prefixed properties
             if (key.startsWith('@') || key.startsWith('$')) {
               const baseKey = key.slice(1)
-              if (!result[baseKey]) {
-                result[baseKey] = value
-              }
+              result[baseKey] = value
+              // Store both prefix versions
+              result[`@${baseKey}`] = value
+              result[`$${baseKey}`] = value
             }
           }
 
