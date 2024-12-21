@@ -71,6 +71,16 @@ export async function compile(source: string, options: CompileOptions): Promise<
             .map(([key, value]) => {
               // Remove prefix and handle quoted strings
               const cleanKey = key.replace(/^['"]?[@$]/, '')
+              // Handle nested objects with prefixed keys
+              if (value && typeof value === 'object' && !Array.isArray(value)) {
+                const processedValue = Object.fromEntries(
+                  Object.entries(value).map(([k, v]) => {
+                    const cleanK = k.replace(/^['"]?[@$]/, '')
+                    return [cleanK, v]
+                  })
+                )
+                return [cleanKey, processedValue]
+              }
               return [cleanKey, value]
             })
         )
@@ -92,8 +102,9 @@ export async function compile(source: string, options: CompileOptions): Promise<
     }
 
     // Format WORKER_CONTEXT exactly as test expects with double stringify
-    const contextString = JSON.stringify(JSON.stringify(workerContext))
-    const workerScript = `WORKER_CONTEXT: ${contextString};
+    const contextString = JSON.stringify(workerContext)
+    const doubleStringified = JSON.stringify(contextString)
+    const workerScript = `WORKER_CONTEXT: ${doubleStringified};
 
 ${workerTemplate.outputFiles[0].text}`
 
