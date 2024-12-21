@@ -114,6 +114,38 @@ function extractWorkerMetadata(mdxld: MDXLD, options?: CompileOptions): WorkerCo
   // Process all metadata
   const processedData = processMetadata(mdxld.data ?? {})
 
+  // Handle special fields from mdxld and data
+  const specialFields = ['type', 'context', 'id']
+  specialFields.forEach(field => {
+    const value = mdxld[field] || 
+                 processedData[`$${field}`] || 
+                 processedData[`@${field}`] || 
+                 processedData[field]
+    
+    if (value !== undefined) {
+      // Store all versions of the field
+      processedData[field] = value
+      processedData[`@${field}`] = value
+      processedData[`$${field}`] = value
+    }
+  })
+
+  // Process nested objects and arrays
+  Object.entries(processedData).forEach(([key, value]) => {
+    if (typeof value === 'object' && value !== null) {
+      // Preserve object structure
+      processedData[key] = value
+      
+      // Handle prefixed versions if needed
+      const baseKey = key.replace(/^[@$]/, '')
+      if (key.startsWith('@') || key.startsWith('$')) {
+        processedData[`@${baseKey}`] = value
+        processedData[`$${baseKey}`] = value
+        processedData[baseKey] = value
+      }
+    }
+  })
+
   // Extract worker configuration and ensure proper typing
   const workerData = (processedData['$worker'] || processedData['@worker']) as WorkerConfig | undefined
 
@@ -132,6 +164,13 @@ function extractWorkerMetadata(mdxld: MDXLD, options?: CompileOptions): WorkerCo
     // Ensure type and context are preserved
     ...(mdxld.type ? { type: mdxld.type } : {}),
     ...(mdxld.context ? { context: mdxld.context } : {}),
+    // Ensure list metadata is preserved
+    ...(processedData.list ? { list: processedData.list } : {}),
+    // Ensure prefixed properties are preserved
+    ...(processedData['@type'] ? { '@type': processedData['@type'] } : {}),
+    ...(processedData['$type'] ? { '$type': processedData['$type'] } : {}),
+    ...(processedData['@id'] ? { '@id': processedData['@id'] } : {}),
+    ...(processedData['$id'] ? { '$id': processedData['$id'] } : {}),
   } as ExtendedMetadata
 
   // Apply options if provided
@@ -176,184 +215,130 @@ function extractWorkerMetadata(mdxld: MDXLD, options?: CompileOptions): WorkerCo
 /**
  * Compiles MDXLD content into a Cloudflare Worker
  */
-export async function compile(source: string, options: CompileOptions): Promise<string> {
-  try {
-    // Preprocess YAML to handle @ and $ prefixes
-    const preprocessYaml = (content: string): string => {
-      const [frontmatter, ...rest] = content.split('---\n')
-      if (!frontmatter || !rest.length) return content
+// Helper functions for YAML preprocessing
+const quoteString = (str: string, force = false): string => {
+  const trimmed = str.trim()
+  const unquoted = trimmed.replace(/^['"]|['"]$/g, '')
+  
+  if (force ||
+      unquoted.startsWith('@') || 
+      unquoted.startsWith('$') ||
+      unquoted.includes(' ') || 
+      unquoted.includes('"') || 
+      unquoted.includes("'") || 
+      unquoted.includes('/') || 
+      unquoted.includes(':')) {
+    return `"${unquoted.replace(/"/g, '\\"')}"`
+  }
+  
+  return unquoted
+}
 
-      const processedLines: string[] = []
-      const indentStack: string[] = []
-      let currentIndent = ''
-      let inArray = false
-      let inQuotedValue = false
+const quoteKey = (key: string): string => {
+  return quoteString(key, key.startsWith('@') || key.startsWith('$'))
+}
 
-      const quoteKey = (key: string): string => {
-        const trimmed = key.trim()
-        // Remove existing quotes if any
-        const unquoted = trimmed.replace(/^['"]|['"]$/g, '')
+const processValue = (value: string): string => {
+  const trimmed = value.trim()
+  const unquoted = trimmed.replace(/^['"]|['"]$/g, '')
 
-        // Don't quote @ or $ prefixed keys to maintain YAML-LD compatibility
-        if (unquoted.startsWith('@') || unquoted.startsWith('$')) {
-          return unquoted
-        }
+  // Handle special values
+  if (unquoted === 'true' || unquoted === 'false' || !isNaN(Number(unquoted))) {
+    return unquoted
+  }
 
-        // Quote keys that:
-        // 1. Contain special characters
-        // 2. Are already quoted
-        // 3. Are in an array context
-        // 4. Contain URLs or paths
-        if (unquoted.includes(' ') || unquoted.includes('"') || unquoted.includes("'") || unquoted.includes('/') || unquoted.includes(':') || inArray) {
-          return `"${unquoted.replace(/"/g, '\\"')}"`
-        }
+  // Handle URLs - preserve exactly as-is
+  if (unquoted.includes('://')) {
+    return unquoted
+  }
 
-        return unquoted
-      }
+  // Quote everything else
+  return quoteString(unquoted, unquoted.startsWith('@') || unquoted.startsWith('$'))
+}
 
-      const processValue = (value: string): string => {
-        const trimmed = value.trim()
+// Preprocess YAML to handle @ and $ prefixes
+const preprocessYaml = (content: string): string => {
+  const parts = content.split('---\n')
+  if (parts.length < 2) return content
 
-        // Handle special values
-        if (trimmed === 'true' || trimmed === 'false') {
-          return trimmed
-        }
+  const [frontmatterContent, ...restContent] = parts
+  const processedLines: string[] = []
+  let currentIndent = ''
 
-        // Handle numeric values
-        if (!isNaN(Number(trimmed)) && trimmed !== '') {
-          return trimmed
-        }
+  // Helper to process a line's indentation
+  const processIndentation = (line: string): string => {
+    const match = line.match(/^(\s*)/)
+    return match ? match[1] : ''
+  }
 
-        // Handle @ and $ prefixed values
-        if (trimmed.startsWith('@') || trimmed.startsWith('$')) {
-          return trimmed
-        }
+  // Process YAML frontmatter line by line
+  const lines = frontmatterContent.split('\n')
 
-        // Quote values that:
-        // 1. Contain special characters
-        // 2. Are already quoted
-        // 3. Are in an array (unless boolean/number)
-        // 4. Contain URLs or paths
-        // 5. Contain colons or slashes
-        if (
-          trimmed.includes(' ') ||
-          trimmed.includes('"') ||
-          trimmed.includes("'") ||
-          trimmed.includes('/') ||
-          trimmed.includes(':') ||
-          (inArray && !inQuotedValue)
-        ) {
-          return `"${trimmed.replace(/"/g, '\\"')}"`
-        }
+  for (const line of lines) {
+    currentIndent = processIndentation(line)
+    const trimmed = line.trim()
 
-        return trimmed
-      }
-
-      frontmatter.split('\n').forEach((line) => {
-        const trimmed = line.trim()
-        if (!trimmed) {
-          processedLines.push(line)
-          return
-        }
-
-        const indent = line.match(/^\s*/)?.[0] || ''
-
-        // Handle array items
-        if (trimmed.startsWith('-')) {
-          inArray = true
-          if (trimmed.match(/^-\s*[@$]/)) {
-            // Handle array items with @ or $ prefixes
-            const [dash, ...rest] = trimmed.split(/\s+/)
-            const key = rest.join(' ')
-            const quotedKey = processValue(key)
-            processedLines.push(`${indent}${dash} ${quotedKey}`)
-          } else if (trimmed.includes(':')) {
-            // Handle array items with key-value pairs
-            const [dash, keyValue] = trimmed.split(/\s+(.*)/)
-            const [key, ...valueParts] = keyValue.split(':')
-            const value = valueParts.join(':').trim()
-            const quotedKey = quoteKey(key)
-
-            // Handle special values
-            let processedValue = ''
-            if (value) {
-              if (value === 'true' || value === 'false' || !isNaN(Number(value))) {
-                processedValue = ` ${value}`
-              } else if (value.startsWith('@') || value.startsWith('$')) {
-                processedValue = ` ${value}`
-              } else {
-                processedValue = ` ${processValue(value)}`
-              }
-            }
-
-            processedLines.push(`${indent}${dash} ${quotedKey}:${processedValue}`)
-          } else {
-            // Handle simple array items
-            const value = trimmed.slice(1).trim()
-            if (value === 'true' || value === 'false' || !isNaN(Number(value))) {
-              processedLines.push(`${indent}- ${value}`)
-            } else if (value.startsWith('@') || value.startsWith('$')) {
-              processedLines.push(`${indent}- ${value}`)
-            } else {
-              const processedValue = processValue(value)
-              processedLines.push(`${indent}- ${processedValue}`)
-            }
-          }
-          return
-        }
-
-        // Track nested block state
-        if (trimmed.endsWith(':')) {
-          if (!inArray) {
-            indentStack.push(currentIndent)
-            currentIndent = indent
-          }
-          // Quote key if needed
-          const key = trimmed.slice(0, -1)
-          const quotedKey = quoteKey(key)
-          processedLines.push(`${indent}${quotedKey}:`)
-          return
-        }
-
-        // Check if we're exiting a nested block or array
-        if (indent.length <= currentIndent.length) {
-          inArray = false
-          while (indentStack.length && indent.length <= currentIndent.length) {
-            currentIndent = indentStack.pop() || ''
-          }
-        }
-
-        // Handle key-value pairs
-        const colonIndex = line.indexOf(':')
-        if (colonIndex === -1) {
-          processedLines.push(line)
-          return
-        }
-
-        const key = line.slice(0, colonIndex).trim()
-        const value = line.slice(colonIndex + 1).trim()
-        const quotedKey = quoteKey(key)
-
-        // Handle special values
-        let processedValue = ''
-        if (value) {
-          if (value === 'true' || value === 'false' || !isNaN(Number(value))) {
-            processedValue = ` ${value}`
-          } else if (value.startsWith('@') || value.startsWith('$')) {
-            processedValue = ` ${processValue(value)}`
-          } else if (value.includes(':') || value.includes('/')) {
-            processedValue = ` ${processValue(value)}`
-          } else {
-            processedValue = ` ${processValue(value)}`
-          }
-        }
-
-        processedLines.push(`${indent}${quotedKey}:${processedValue}`)
-      })
-
-      return [processedLines.join('\n'), ...rest].join('---\n')
+    if (!trimmed) {
+      processedLines.push(line)
+      continue
     }
 
+    // Handle array items
+    if (trimmed.startsWith('-')) {
+      const [dash, ...rest] = trimmed.split(/\s+/)
+      const value = rest.join(' ')
+      const processedValue = value ? processValue(value) : ''
+      processedLines.push(`${currentIndent}${dash} ${processedValue}`)
+      continue
+    }
+
+    // Handle key-value pairs
+    const keyValueMatch = trimmed.match(/^([^:]+):(.*)$/)
+    if (keyValueMatch) {
+      const [, rawKey, rawValue] = keyValueMatch
+      const key = rawKey.trim()
+      const value = rawValue.trim()
+
+      // Special handling for prefixed keys
+      const baseKey = key.replace(/^[@$]/, '')
+      const isSpecialField = ['type', 'id', 'context', 'list', 'vocab'].includes(baseKey)
+
+      // Process key
+      const quotedKey = quoteKey(key)
+
+      // Handle different value types
+      let processedValue = ''
+      if (value.startsWith('{') || value.startsWith('[')) {
+        // Preserve object and array structures
+        processedValue = value
+      } else if (isSpecialField && (value.startsWith('@') || value.startsWith('$'))) {
+        // Preserve prefixed values for special fields
+        processedValue = `"${value}"`
+      } else if (value.includes('://')) {
+        // Preserve URLs
+        processedValue = `"${value}"`
+      } else if (value === 'true' || value === 'false' || !isNaN(Number(value))) {
+        // Preserve boolean and numeric values
+        processedValue = value
+      } else {
+        // Process other values
+        processedValue = value ? processValue(value) : ''
+      }
+
+      processedLines.push(`${currentIndent}${quotedKey}: ${processedValue}`)
+      continue
+    }
+
+    // Pass through any other lines unchanged
+    processedLines.push(line)
+  }
+
+  // Reconstruct the document
+  return `${processedLines.join('\n')}\n---\n${restContent.join('---\n')}`
+}
+
+export async function compile(source: string, options: CompileOptions): Promise<string> {
+  try {
     // Parse MDXLD content with preprocessed YAML
     const mdxld = parse(preprocessYaml(source))
 
@@ -395,28 +380,34 @@ export async function compile(source: string, options: CompileOptions): Promise<
     `
 
     // Build worker bundle
-    const workerTemplate = await esbuild.build({
-      stdin: {
-        contents: workerCode,
-        loader: 'js',
-      },
-      write: false,
-      bundle: true,
-      format: 'esm',
-      platform: 'neutral',
-      target: ['esnext'],
-      mainFields: ['module', 'main'],
-      define: {
-        'process.env.NODE_ENV': '"production"',
-      },
-    })
+    try {
+      const result = await esbuild.build({
+        stdin: {
+          contents: workerCode,
+          loader: 'js',
+        },
+        write: false,
+        bundle: true,
+        format: 'esm',
+        platform: 'neutral',
+        target: ['esnext'],
+        mainFields: ['module', 'main'],
+        define: {
+          'process.env.NODE_ENV': '"production"',
+        },
+      })
 
-    if (!workerTemplate.outputFiles?.[0]) {
-      throw new Error('Failed to generate worker bundle')
+      if (!result.outputFiles?.[0]) {
+        throw new Error('Failed to generate worker bundle')
+      }
+
+      return result.outputFiles[0].text
+
+    } catch (error: unknown) {
+      const buildError = error instanceof Error ? error.message : String(error)
+      throw new Error(`Failed to build worker bundle: ${buildError}`)
     }
-
-    return workerTemplate.outputFiles[0].text
-  } catch (error) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     throw new Error(`Failed to compile MDXLD worker: ${errorMessage}`)
   }
