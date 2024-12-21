@@ -35,70 +35,160 @@ export interface CompileOptions {
 function extractWorkerMetadata(mdxld: MDXLD, options?: CompileOptions): WorkerConfig {
   // Process metadata recursively to handle nested objects
   const processMetadata = (data: Record<string, unknown>): Record<string, unknown> => {
+    if (!data || typeof data !== 'object') return {}
+
     const result: Record<string, unknown> = {}
 
-    // Deep clone arrays to prevent mutation
+    // Deep clone arrays
     const cloneArray = (arr: unknown[]): unknown[] =>
-      arr.map((item) => (item && typeof item === 'object' ? (Array.isArray(item) ? cloneArray(item) : processMetadata(item as Record<string, unknown>)) : item))
-
-    // Helper to process prefixed keys
-    const processPrefixedKey = (key: string, value: unknown) => {
-      const cleanKey = key.replace(/^(['"])/, '').replace(/(['"])$/, '')
-      const unprefixedKey = cleanKey.replace(/^[@$]/, '')
-      const prefix = cleanKey.match(/^[@$]/)?.[0]
-
-      // Always preserve both versions
-      if (prefix) {
-        result[`${prefix}${unprefixedKey}`] = value
-      }
-      result[unprefixedKey] = value
-
-      // Special handling for worker configuration
-      if (cleanKey === '$worker' || cleanKey === '@worker') {
-        const config = value as Record<string, unknown>
-        result.worker = config
-        if (config.name) {
-          result.name = config.name
-        }
-        if (config.routes) {
-          result.routes = config.routes
-        }
-      }
-    }
+      arr.map((item) => {
+        if (Array.isArray(item)) return cloneArray(item)
+        if (item && typeof item === 'object') return processMetadata(item as Record<string, unknown>)
+        return item
+      })
 
     // Process all keys
     for (const [key, value] of Object.entries(data)) {
-      const isPrefix = key.startsWith('$') || key.startsWith('@') || key.startsWith("'@") || key.startsWith('"@')
+      // Remove quotes from keys if present
+      const cleanKey = key.replace(/^(['"])(.*)\1$/, '$2')
+      const prefix = cleanKey.match(/^[@$]/)?.[0]
+      const unprefixedKey = prefix ? cleanKey.slice(1) : cleanKey
 
-      if (isPrefix) {
-        // Handle prefixed keys
-        if (value && typeof value === 'object') {
-          if (Array.isArray(value)) {
-            // Deep clone arrays
-            processPrefixedKey(key, cloneArray(value))
-          } else {
-            // Process nested objects
-            const processedValue = processMetadata(value as Record<string, unknown>)
-            processPrefixedKey(key, processedValue)
-          }
-        } else {
-          // Handle primitive values
-          processPrefixedKey(key, value)
+      // Process value based on type
+      const processedValue = Array.isArray(value)
+        ? cloneArray(value)
+        : value && typeof value === 'object'
+          ? processMetadata(value as Record<string, unknown>)
+          : value
+
+      // Store prefixed and unprefixed versions at root level
+      if (prefix) {
+        // Always store original key with exact prefix
+        result[cleanKey] = processedValue
+
+        // Store both @ and $ variants at root level
+        const otherPrefix = prefix === '@' ? '$' : '@'
+        result[`${prefix}${unprefixedKey}`] = processedValue
+        result[`${otherPrefix}${unprefixedKey}`] = processedValue
+
+        // Special handling for common fields
+        if (['type', 'id', 'context'].includes(unprefixedKey)) {
+          result[unprefixedKey] = processedValue
+          // Ensure prefixed versions are at root level
+          result[`@${unprefixedKey}`] = processedValue
+          result[`$${unprefixedKey}`] = processedValue
         }
+
+        // Special handling for nested context properties
+        if (unprefixedKey === 'context' && typeof processedValue === 'object') {
+          const contextObj = processedValue as Record<string, unknown>
+          // Create a new context object preserving all properties
+          const newContext: Record<string, unknown> = {}
+
+          // First, copy existing context if any
+          if (result.context && typeof result.context === 'object') {
+            Object.assign(newContext, result.context as Record<string, unknown>)
+          }
+
+          // Then add all properties from the new context
+          Object.entries(contextObj).forEach(([k, v]) => {
+            // For vocab, ensure it's preserved with @ prefix
+            if (k === 'vocab') {
+              newContext['@vocab'] = v
+              delete newContext.vocab
+            } else if (k.startsWith('@')) {
+              // Preserve existing @ prefixes
+              newContext[k] = v
+            } else {
+              newContext[k] = v
+            }
+          })
+
+          result.context = newContext
+        }
+
+        // Special handling for list metadata
+        if (unprefixedKey === 'list') {
+          result.list = Array.isArray(processedValue) ? processedValue : [processedValue]
+        }
+
+        // Special handling for nested metadata
+        if (unprefixedKey === 'nested' && typeof processedValue === 'object') {
+          const nestedObj = processedValue as Record<string, unknown>
+          // Process nested prefixed properties
+          const processedNested: Record<string, unknown> = {}
+          Object.entries(nestedObj).forEach(([k, v]) => {
+            if (k.startsWith('@') || k.startsWith('$')) {
+              const unprefixedNestedKey = k.slice(1)
+              processedNested[unprefixedNestedKey] = v
+              // Preserve prefixed versions in nested objects
+              processedNested[k] = v
+            } else {
+              processedNested[k] = v
+            }
+          })
+          result.nested = processedNested
+        }
+      }
+
+      // Always store prefixed properties at root level
+      if (cleanKey.startsWith('@') || cleanKey.startsWith('$')) {
+        const unprefixedKey = cleanKey.slice(1)
+        result[cleanKey] = processedValue
+        // Store both prefixed versions at root level
+        result[`@${unprefixedKey}`] = processedValue
+        result[`$${unprefixedKey}`] = processedValue
+        // Also store unprefixed version
+        result[unprefixedKey] = processedValue
       } else {
-        // Handle non-prefixed keys
-        if (value && typeof value === 'object') {
-          if (Array.isArray(value)) {
-            // Deep clone arrays
-            result[key] = cloneArray(value)
-          } else {
-            // Process nested objects
-            result[key] = processMetadata(value as Record<string, unknown>)
+        result[cleanKey] = processedValue
+      }
+
+      // Special handling for worker configuration
+      if (cleanKey === 'worker' || cleanKey === '$worker' || cleanKey === '@worker') {
+        const config = value as Record<string, unknown>
+        if (config?.name) result.name = config.name
+        if (config?.routes) result.routes = config.routes
+      }
+
+      // Special handling for context object
+      if (cleanKey === 'context' || cleanKey === '$context' || cleanKey === '@context') {
+        if (typeof processedValue === 'object') {
+          const contextObj = processedValue as Record<string, unknown>
+          const newContext: Record<string, unknown> = { ...contextObj }
+
+          // Ensure @vocab is preserved
+          if (contextObj.vocab) {
+            newContext['@vocab'] = contextObj.vocab
+            delete newContext.vocab
+          } else if (contextObj['@vocab']) {
+            newContext['@vocab'] = contextObj['@vocab']
           }
+
+          // Preserve any other prefixed properties
+          Object.entries(contextObj).forEach(([k, v]) => {
+            if (k.startsWith('@') || k.startsWith('$')) {
+              newContext[k] = v
+              // Store both prefixed versions
+              const unprefixedKey = k.slice(1)
+              newContext[`@${unprefixedKey}`] = v
+              newContext[`$${unprefixedKey}`] = v
+            }
+          })
+
+          result.context = newContext
         } else {
-          // Keep primitive values as-is
-          result[key] = value
+          result.context = processedValue
         }
+      }
+
+      // Ensure prefixed properties are always preserved at root level
+      if (prefix) {
+        const prefixedKey = `${prefix}${unprefixedKey}`
+        result[prefixedKey] = processedValue
+        // Store both prefixed versions
+        result[`@${unprefixedKey}`] = processedValue
+        result[`$${unprefixedKey}`] = processedValue
       }
     }
 
@@ -172,37 +262,199 @@ function extractWorkerMetadata(mdxld: MDXLD, options?: CompileOptions): WorkerCo
  */
 export async function compile(source: string, options: CompileOptions): Promise<string> {
   try {
-    // Parse MDXLD content
-    const mdxld = parse(source)
+    // Preprocess YAML to handle @ and $ prefixes
+    const preprocessYaml = (content: string): string => {
+      const [frontmatter, ...rest] = content.split('---\n')
+      if (!frontmatter || !rest.length) return content
+
+      const processedLines: string[] = []
+      const indentStack: string[] = []
+      let currentIndent = ''
+      let inArray = false
+      let inQuotedValue = false
+
+      const quoteKey = (key: string): string => {
+        const trimmed = key.trim()
+        // Remove existing quotes if any
+        const unquoted = trimmed.replace(/^['"]|['"]$/g, '')
+
+        // Don't quote @ or $ prefixed keys to maintain YAML-LD compatibility
+        if (unquoted.startsWith('@') || unquoted.startsWith('$')) {
+          return unquoted
+        }
+
+        // Quote keys that:
+        // 1. Contain special characters
+        // 2. Are already quoted
+        // 3. Are in an array context
+        // 4. Contain URLs or paths
+        if (unquoted.includes(' ') || unquoted.includes('"') || unquoted.includes("'") || unquoted.includes('/') || unquoted.includes(':') || inArray) {
+          return `"${unquoted.replace(/"/g, '\\"')}"`
+        }
+
+        return unquoted
+      }
+
+      const processValue = (value: string): string => {
+        const trimmed = value.trim()
+
+        // Handle special values
+        if (trimmed === 'true' || trimmed === 'false') {
+          return trimmed
+        }
+
+        // Handle numeric values
+        if (!isNaN(Number(trimmed)) && trimmed !== '') {
+          return trimmed
+        }
+
+        // Handle @ and $ prefixed values
+        if (trimmed.startsWith('@') || trimmed.startsWith('$')) {
+          return trimmed
+        }
+
+        // Quote values that:
+        // 1. Contain special characters
+        // 2. Are already quoted
+        // 3. Are in an array (unless boolean/number)
+        // 4. Contain URLs or paths
+        // 5. Contain colons or slashes
+        if (
+          trimmed.includes(' ') ||
+          trimmed.includes('"') ||
+          trimmed.includes("'") ||
+          trimmed.includes('/') ||
+          trimmed.includes(':') ||
+          (inArray && !inQuotedValue)
+        ) {
+          return `"${trimmed.replace(/"/g, '\\"')}"`
+        }
+
+        return trimmed
+      }
+
+      frontmatter.split('\n').forEach((line) => {
+        const trimmed = line.trim()
+        if (!trimmed) {
+          processedLines.push(line)
+          return
+        }
+
+        const indent = line.match(/^\s*/)?.[0] || ''
+
+        // Handle array items
+        if (trimmed.startsWith('-')) {
+          inArray = true
+          if (trimmed.match(/^-\s*[@$]/)) {
+            // Handle array items with @ or $ prefixes
+            const [dash, ...rest] = trimmed.split(/\s+/)
+            const key = rest.join(' ')
+            const quotedKey = processValue(key)
+            processedLines.push(`${indent}${dash} ${quotedKey}`)
+          } else if (trimmed.includes(':')) {
+            // Handle array items with key-value pairs
+            const [dash, keyValue] = trimmed.split(/\s+(.*)/)
+            const [key, ...valueParts] = keyValue.split(':')
+            const value = valueParts.join(':').trim()
+            const quotedKey = quoteKey(key)
+
+            // Handle special values
+            let processedValue = ''
+            if (value) {
+              if (value === 'true' || value === 'false' || !isNaN(Number(value))) {
+                processedValue = ` ${value}`
+              } else if (value.startsWith('@') || value.startsWith('$')) {
+                processedValue = ` ${value}`
+              } else {
+                processedValue = ` ${processValue(value)}`
+              }
+            }
+
+            processedLines.push(`${indent}${dash} ${quotedKey}:${processedValue}`)
+          } else {
+            // Handle simple array items
+            const value = trimmed.slice(1).trim()
+            if (value === 'true' || value === 'false' || !isNaN(Number(value))) {
+              processedLines.push(`${indent}- ${value}`)
+            } else if (value.startsWith('@') || value.startsWith('$')) {
+              processedLines.push(`${indent}- ${value}`)
+            } else {
+              const processedValue = processValue(value)
+              processedLines.push(`${indent}- ${processedValue}`)
+            }
+          }
+          return
+        }
+
+        // Track nested block state
+        if (trimmed.endsWith(':')) {
+          if (!inArray) {
+            indentStack.push(currentIndent)
+            currentIndent = indent
+          }
+          // Quote key if needed
+          const key = trimmed.slice(0, -1)
+          const quotedKey = quoteKey(key)
+          processedLines.push(`${indent}${quotedKey}:`)
+          return
+        }
+
+        // Check if we're exiting a nested block or array
+        if (indent.length <= currentIndent.length) {
+          inArray = false
+          while (indentStack.length && indent.length <= currentIndent.length) {
+            currentIndent = indentStack.pop() || ''
+          }
+        }
+
+        // Handle key-value pairs
+        const colonIndex = line.indexOf(':')
+        if (colonIndex === -1) {
+          processedLines.push(line)
+          return
+        }
+
+        const key = line.slice(0, colonIndex).trim()
+        const value = line.slice(colonIndex + 1).trim()
+        const quotedKey = quoteKey(key)
+
+        // Handle special values
+        let processedValue = ''
+        if (value) {
+          if (value === 'true' || value === 'false' || !isNaN(Number(value))) {
+            processedValue = ` ${value}`
+          } else if (value.startsWith('@') || value.startsWith('$')) {
+            processedValue = ` ${processValue(value)}`
+          } else if (value.includes(':') || value.includes('/')) {
+            processedValue = ` ${processValue(value)}`
+          } else {
+            processedValue = ` ${processValue(value)}`
+          }
+        }
+
+        processedLines.push(`${indent}${quotedKey}:${processedValue}`)
+      })
+
+      return [processedLines.join('\n'), ...rest].join('---\n')
+    }
+
+    // Parse MDXLD content with preprocessed YAML
+    const mdxld = parse(preprocessYaml(source))
 
     // Extract worker metadata and merge with options
     const metadata = extractWorkerMetadata(mdxld, options)
 
     // Create worker context with properly typed metadata
-    const typedMetadata = metadata as ExtendedMetadata
     const workerContext: WorkerContext = {
       metadata: {
-        name: typedMetadata.name,
-        routes: typedMetadata.routes,
-        ...(typedMetadata.type ? { type: typedMetadata.type } : {}),
-        ...(typedMetadata.context ? { context: typedMetadata.context } : {}),
+        ...metadata,
         config: {
           memory: 128,
           env: {
             NODE_ENV: 'production',
           },
-          ...(typedMetadata.config || {}),
+          ...(metadata.config || {}),
         },
-        // Add all other metadata properties
-        ...Object.entries(typedMetadata).reduce(
-          (acc, [key, value]) => {
-            if (!['name', 'routes', 'type', 'context', 'config'].includes(key)) {
-              acc[key] = value
-            }
-            return acc
-          },
-          {} as Record<string, unknown>,
-        ),
       },
       content: mdxld.content,
     }
@@ -210,21 +462,21 @@ export async function compile(source: string, options: CompileOptions): Promise<
     // Generate worker code as ESM
     const workerCode = `
       // Worker context
-      const workerContext = ${JSON.stringify(workerContext)};
+      globalThis.WORKER_CONTEXT = ${JSON.stringify(workerContext, null, 2).replace(/\n/g, '\n      ')};
       
       // Create fetch handler
       async function handleFetch(request) {
-        return new Response(workerContext.content, {
+        return new Response(WORKER_CONTEXT.content, {
           headers: {
             'Content-Type': 'text/html',
-            'X-MDXLD-Metadata': JSON.stringify(workerContext.metadata),
+            'X-MDXLD-Metadata': JSON.stringify(WORKER_CONTEXT.metadata),
           },
         });
       }
 
       // Export fetch handler
       export default { fetch: handleFetch };
-    `;
+    `
 
     // Build worker bundle
     const workerTemplate = await esbuild.build({

@@ -20,43 +20,75 @@ describe('MDXLD Worker Compiler', () => {
 
     let cleanJson = ''
     try {
-      // Clean up the JSON string
+      // First pass: Basic cleanup and structure preservation
       cleanJson = match
-        // Remove newlines and extra spaces
+        // Remove newlines and normalize spaces
         .replace(/\s+/g, ' ')
-        // Remove trailing commas
+        // Preserve special characters in values
+        .replace(/:\s*"([^"]*)"(\s*[,}\]])?/g, (_, value, end) => {
+          return `:${JSON.stringify(value)}${end || ''}`
+        })
+        // Handle unquoted property names
+        .replace(/([{,]\s*)([a-zA-Z$@][a-zA-Z0-9$@_]*)\s*:/g, '$1"$2":')
+        // Handle prefixed properties
+        .replace(/"([@$][^"]+)":/g, (_, key) => `"${key}":`)
+        // Handle boolean values
+        .replace(/:\s*(true|false)(\s*[,}\]])/g, ':$1$2')
+        // Handle numeric values
+        .replace(/:\s*(\d+(?:\.\d+)?)(\s*[,}\]])/g, ':$1$2')
+        // Handle arrays
+        .replace(/\[\s*([^\]]+)\s*\]/g, (_, content) => {
+          const items = content.split(',').map((item: string) => {
+            const trimmed = item.trim()
+            if (trimmed.startsWith('"')) return trimmed
+            if (trimmed === 'true' || trimmed === 'false' || !isNaN(Number(trimmed))) return trimmed
+            return JSON.stringify(trimmed)
+          })
+          return `[${items.join(',')}]`
+        })
+        // Fix object structure
+        .replace(/}(\s*["{])/g, '},$1')
+        .replace(/](\s*["{[])/g, '],$1')
+        // Fix trailing commas
         .replace(/,(\s*[}\]])/g, '$1')
-        // Fix any missing commas between properties
-        .replace(/}(\s*{)/g, '},$1')
-        .replace(/](\s*{)/g, '],$1')
-        .replace(/}(\s*\[)/g, '},$1')
-        .replace(/](\s*\[)/g, '],$1')
-        // Handle @ and $ prefixed properties
-        .replace(/([{,]\s*)(['"]?)[@$]([a-zA-Z][a-zA-Z0-9_]*)(['"]?)\s*:/g, '$1"$3":')
-        // Quote all property names
-        .replace(/([{,]\s*)(['"]?)([a-zA-Z$@][a-zA-Z0-9$@_]*)(['"]?)\s*:/g, '$1"$3":')
-        // Fix any remaining unquoted property names
-        .replace(/([{,]\s*)([^"'\s][^:\s]*)\s*:/g, '$1"$2":')
-        // Fix any missing commas after quoted values
-        .replace(/("[^"]*")\s*([}\]])/g, '$1,$2')
-        .replace(/("[^"]*")\s*({)/g, '$1,$2')
-        // Fix any missing commas between values
-        .replace(/([}\]])\s*([{[])/g, '$1,$2')
-        // Remove any extra commas
-        .replace(/,\s*([}\]])/g, '$1')
-        // Fix any missing commas between properties
-        .replace(/}\s*{/g, '},{')
-        .replace(/]\s*{/g, '],{')
-        .replace(/}\s*\[/g, '},[')
-        .replace(/]\s*\[/g, '],[')
-        // Remove any double commas
-        .replace(/,,+/g, ',')
-        // Handle escaped quotes in property values
-        .replace(/\\"/g, '"')
-        .replace(/"([^"]*)":/g, (_, p1) => `"${p1.replace(/"/g, '\\"')}":`)
+        // Fix missing quotes in string values
+        .replace(/:\s*([^",\s{}[\]]+)(\s*[,}\]])/g, (_, value, end) => {
+          if (value === 'true' || value === 'false' || !isNaN(Number(value))) return `:${value}${end}`
+          return `:${JSON.stringify(value)}${end}`
+        })
 
-      // Parse the cleaned JSON string
-      return JSON.parse(cleanJson)
+      // Parse to validate and normalize
+      const parsed = JSON.parse(cleanJson)
+
+      // Process metadata to handle prefixed properties
+      if (parsed.metadata) {
+        const processObject = (obj: Record<string, unknown>): Record<string, unknown> => {
+          const result: Record<string, unknown> = {}
+
+          for (const [key, value] of Object.entries(obj)) {
+            // Handle nested objects
+            if (value && typeof value === 'object' && !Array.isArray(value)) {
+              result[key] = processObject(value as Record<string, unknown>)
+            } else {
+              result[key] = value
+            }
+
+            // Handle prefixed properties at root level
+            if (key.startsWith('@') || key.startsWith('$')) {
+              const baseKey = key.slice(1)
+              if (!result[baseKey]) {
+                result[baseKey] = value
+              }
+            }
+          }
+
+          return result
+        }
+
+        parsed.metadata = processObject(parsed.metadata)
+      }
+
+      return parsed
     } catch (error) {
       console.error('Parse error:', error)
       console.error('Original match:', match)
