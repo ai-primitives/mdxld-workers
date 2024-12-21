@@ -12,6 +12,8 @@ export interface MDXLD {
   data?: Record<string, unknown>
   /** Main content body */
   content: string
+  /** Allow string indexing for metadata fields */
+  [key: string]: string | Record<string, unknown> | undefined
 }
 
 /**
