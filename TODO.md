@@ -47,6 +47,12 @@
   - [ ] Ensure proper YAML-LD metadata handling
   - [ ] Verify JSX transformation accuracy
   - [ ] Test complex MDX component scenarios
+- [ ] Dependencies
+  - [ ] mdxld version compatibility
+    - Issue: mdxld@^1.0.0 not available (latest: 0.1.3)
+    - Status: Blocked on mdxld package update
+    - Impact: CI build failures
+    - Resolution: Using latest available version (0.1.3)
 - [x] Test Implementation
   - [x] Fix Vitest module mocking issues
     - [x] Move vi.mock() calls to top of file
