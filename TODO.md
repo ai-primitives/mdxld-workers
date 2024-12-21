@@ -53,11 +53,12 @@
     - Occurrences: Lines 32, 78, 104, 128, 160
     - Resolution: Need to properly set up worker context in test environment
   - [ ] YAML-LD Parsing Errors
-    - Issue: "Failed to parse YAML frontmatter: Plain value cannot start with reserved character @"
-    - Location: src/compiler/index.ts:98:11
-    - Impact: Prevents proper handling of YAML-LD metadata
-    - Details: @ prefix causing parser errors at line 2, column 1
-    - Resolution: Update YAML parser configuration to handle @ prefix correctly
+    - Issue: "Failed to parse worker context: SyntaxError: Expected ',' or '}' after property value in JSON"
+    - Location: src/compiler/__tests__/index.test.ts
+    - Impact: Test failures in metadata handling
+    - Details: JSON parsing errors in worker context extraction
+    - Status: In Progress - Improved JSON parsing implementation
+    - Resolution: Enhanced metadata field handling and JSON structure preservation
 - [ ] Cloudflare Workers Integration
   - [ ] Verify Platform API access and permissions
   - [ ] Test worker deployment process
@@ -71,12 +72,12 @@
   - [ ] Ensure proper YAML-LD metadata handling
   - [ ] Verify JSX transformation accuracy
   - [ ] Test complex MDX component scenarios
-- [ ] Dependencies
-  - [ ] mdxld version compatibility
+- [x] Dependencies
+  - [x] mdxld version compatibility
     - Issue: mdxld@^1.0.0 not available (latest: 0.1.3)
-    - Status: Blocked on mdxld package update
-    - Impact: CI build failures
-    - Resolution: Using latest available version (0.1.3)
+    - Status: Resolved - Updated to latest version
+    - Impact: None - Build passing with current version
+    - Resolution: Successfully integrated with current version
   - [ ] Type Definition Mismatches
     - Issue: MDXLD type from mdxld package has optional properties that our implementation requires
     - Location: src/compiler/index.ts
@@ -111,9 +112,11 @@
   - [x] Integration tests for worker deployment
   - [x] CLI command tests
   - [ ] YAML-LD parsing tests
-    - [ ] Test @ prefix handling
-    - [ ] Test $ prefix handling
-    - [ ] Test all value type combinations
+    - [x] Test @ prefix handling
+    - [x] Test $ prefix handling
+    - [x] Test all value type combinations
+    - [ ] Fix worker context extraction tests
+    - [ ] Verify complex metadata structure handling
 - [ ] Manual Testing
   - [ ] Verify worker deployment
   - [ ] Test Platform API integration
