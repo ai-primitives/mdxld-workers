@@ -59,7 +59,14 @@
     - Status: Blocked on mdxld package update
     - Impact: CI build failures
     - Resolution: Using latest available version (0.1.3)
-    - Resolution: Using latest available version (0.1.3)
+  - [ ] Type Definition Mismatches
+    - Issue: MDXLD type from mdxld package has optional properties that our implementation requires
+    - Location: src/compiler/index.ts
+    - Impact: TypeScript build failures in CI
+    - Details:
+      - Property 'type' is optional in mdxld but required in our implementation
+      - Property 'context' has incompatible type definitions
+    - Resolution: Need to update our MDXLD type to handle optional properties
 - [x] Test Implementation
   - [x] Fix Vitest module mocking issues
     - [x] Move vi.mock() calls to top of file
