@@ -2,7 +2,7 @@
   "name": "mdxld-workers",
   "version": "0.1.0",
   "description": "Compile and deploy MDXLD files to Cloudflare Workers",
-  "type": "module",
+  "type": "commonjs",
   "main": "dist/index.cjs",
   "module": "dist/index.js",
   "exports": {

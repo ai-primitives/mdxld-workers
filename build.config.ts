@@ -2,7 +2,7 @@ import { defineConfig } from 'tsup'
 
 export default defineConfig({
   entry: ['src/index.ts', 'src/cli/index.ts'],
-  format: ['esm'],
+  format: ['iife'],
   dts: true,
   clean: true,
   sourcemap: true,
@@ -10,13 +10,15 @@ export default defineConfig({
   target: 'esnext',
   outDir: 'dist',
   external: ['mdxld', 'esbuild', 'commander', 'execa'],
-  platform: 'node',
+  platform: 'browser',
   esbuildOptions(options) {
     options.bundle = true
-    options.platform = 'node'
+    options.platform = 'browser'
     options.target = ['esnext']
+    options.format = 'iife'
     options.define = {
       'process.env.NODE_ENV': '"production"',
+      'global': 'globalThis',
       'import.meta': '{}',
       'import.meta.url': '""'
     }
