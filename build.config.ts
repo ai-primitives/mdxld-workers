@@ -12,13 +12,16 @@ export default defineConfig({
   outDir: 'dist',
   external: ['mdxld'],
   esbuildOptions(options) {
-    options.platform = 'node'
-    options.format = 'esm'
+    options.platform = 'browser'
+    options.format = 'iife'
     options.bundle = true
-    options.mainFields = ['module', 'main']
-    options.conditions = ['import', 'module']
+    options.target = ['esnext']
     options.define = {
       'process.env.NODE_ENV': '"production"'
+    }
+    options.conditions = ['worker', 'browser']
+    options.supported = {
+      'import.meta.url': false
     }
   }
 })

@@ -1,3 +1,5 @@
+/// <reference lib="webworker" />
+
 export interface WorkerContext {
   metadata: Record<string, unknown>
   content: string
@@ -5,19 +7,21 @@ export interface WorkerContext {
 
 declare const WORKER_CONTEXT: WorkerContext
 
-const worker = {
+export interface WorkerExports {
+  fetch(request: Request): Promise<Response>
+}
+
+const worker: WorkerExports = {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async fetch(_request: Request): Promise<Response> {
-    // Request parameter required by Worker API, will be used for routing
-    const ctx: WorkerContext = WORKER_CONTEXT
-
-    return new Response(ctx.content, {
+    return new Response(WORKER_CONTEXT.content, {
       headers: {
         'Content-Type': 'text/html',
-        'X-MDXLD-Metadata': JSON.stringify(ctx.metadata),
+        'X-MDXLD-Metadata': JSON.stringify(WORKER_CONTEXT.metadata),
       },
     })
   },
 }
 
-export default worker
+// Use type assertion to avoid TypeScript errors
+;(globalThis as unknown as { default: WorkerExports }).default = worker

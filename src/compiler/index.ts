@@ -215,26 +215,31 @@ export async function compile(source: string, options: CompileOptions): Promise<
           globalThis.WORKER_CONTEXT = ${JSON.stringify(workerContext)};
           const worker = {
             async fetch(_request) {
-              const ctx = WORKER_CONTEXT;
-              return new Response(ctx.content, {
+              return new Response(WORKER_CONTEXT.content, {
                 headers: {
                   'Content-Type': 'text/html',
-                  'X-MDXLD-Metadata': JSON.stringify(ctx.metadata),
+                  'X-MDXLD-Metadata': JSON.stringify(WORKER_CONTEXT.metadata),
                 },
               });
             },
           };
-          export { worker as default };
+          globalThis.default = worker;
         `,
         loader: 'ts',
       },
       write: false,
       bundle: true,
-      format: 'esm',
-      platform: 'neutral',
-      outdir: 'dist',
+      format: 'iife',
+      platform: 'browser',
+      target: ['esnext'],
       define: {
         'process.env.NODE_ENV': '"production"',
+        'global': 'globalThis',
+        'globalThis.process': 'undefined'
+      },
+      conditions: ['worker', 'browser'],
+      supported: {
+        'import.meta.url': false
       },
     })
 
