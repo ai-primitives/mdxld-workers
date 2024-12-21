@@ -116,12 +116,9 @@ function extractWorkerMetadata(mdxld: MDXLD, options?: CompileOptions): WorkerCo
 
   // Handle special fields from mdxld and data
   const specialFields = ['type', 'context', 'id']
-  specialFields.forEach(field => {
-    const value = mdxld[field] || 
-                 processedData[`$${field}`] || 
-                 processedData[`@${field}`] || 
-                 processedData[field]
-    
+  specialFields.forEach((field) => {
+    const value = mdxld[field] || processedData[`$${field}`] || processedData[`@${field}`] || processedData[field]
+
     if (value !== undefined) {
       // Store all versions of the field
       processedData[field] = value
@@ -135,7 +132,7 @@ function extractWorkerMetadata(mdxld: MDXLD, options?: CompileOptions): WorkerCo
     if (typeof value === 'object' && value !== null) {
       // Preserve object structure
       processedData[key] = value
-      
+
       // Handle prefixed versions if needed
       const baseKey = key.replace(/^[@$]/, '')
       if (key.startsWith('@') || key.startsWith('$')) {
@@ -168,9 +165,9 @@ function extractWorkerMetadata(mdxld: MDXLD, options?: CompileOptions): WorkerCo
     ...(processedData.list ? { list: processedData.list } : {}),
     // Ensure prefixed properties are preserved
     ...(processedData['@type'] ? { '@type': processedData['@type'] } : {}),
-    ...(processedData['$type'] ? { '$type': processedData['$type'] } : {}),
+    ...(processedData['$type'] ? { $type: processedData['$type'] } : {}),
     ...(processedData['@id'] ? { '@id': processedData['@id'] } : {}),
-    ...(processedData['$id'] ? { '$id': processedData['$id'] } : {}),
+    ...(processedData['$id'] ? { $id: processedData['$id'] } : {}),
   } as ExtendedMetadata
 
   // Apply options if provided
@@ -219,18 +216,20 @@ function extractWorkerMetadata(mdxld: MDXLD, options?: CompileOptions): WorkerCo
 const quoteString = (str: string, force = false): string => {
   const trimmed = str.trim()
   const unquoted = trimmed.replace(/^['"]|['"]$/g, '')
-  
-  if (force ||
-      unquoted.startsWith('@') || 
-      unquoted.startsWith('$') ||
-      unquoted.includes(' ') || 
-      unquoted.includes('"') || 
-      unquoted.includes("'") || 
-      unquoted.includes('/') || 
-      unquoted.includes(':')) {
+
+  if (
+    force ||
+    unquoted.startsWith('@') ||
+    unquoted.startsWith('$') ||
+    unquoted.includes(' ') ||
+    unquoted.includes('"') ||
+    unquoted.includes("'") ||
+    unquoted.includes('/') ||
+    unquoted.includes(':')
+  ) {
     return `"${unquoted.replace(/"/g, '\\"')}"`
   }
-  
+
   return unquoted
 }
 
@@ -402,7 +401,6 @@ export async function compile(source: string, options: CompileOptions): Promise<
       }
 
       return result.outputFiles[0].text
-
     } catch (error: unknown) {
       const buildError = error instanceof Error ? error.message : String(error)
       throw new Error(`Failed to build worker bundle: ${buildError}`)

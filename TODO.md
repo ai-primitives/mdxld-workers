@@ -54,7 +54,7 @@
     - Resolution: Need to properly set up worker context in test environment
   - [ ] YAML-LD Parsing Errors
     - Issue: "Failed to parse worker context: SyntaxError: Expected ',' or '}' after property value in JSON"
-    - Location: src/compiler/__tests__/index.test.ts
+    - Location: src/compiler/**tests**/index.test.ts
     - Impact: Test failures in metadata handling
     - Details: JSON parsing errors in worker context extraction
     - Status: In Progress - Improved JSON parsing implementation
