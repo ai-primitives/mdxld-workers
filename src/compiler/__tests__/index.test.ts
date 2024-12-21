@@ -22,10 +22,33 @@ describe('MDXLD Worker Compiler', () => {
     try {
       // Clean up the JSON string
       cleanJson = match
+        // Remove newlines and extra spaces
+        .replace(/\s+/g, ' ')
         // Remove trailing commas
         .replace(/,(\s*[}\]])/g, '$1')
+        // Fix any missing commas between properties
+        .replace(/}(\s*{)/g, '},$1')
+        .replace(/](\s*{)/g, '],$1')
+        .replace(/}(\s*\[)/g, '},$1')
+        .replace(/](\s*\[)/g, '],$1')
         // Ensure property names are properly quoted
         .replace(/([{,]\s*)([a-zA-Z$@][a-zA-Z0-9$@_]*)\s*:/g, '$1"$2":')
+        // Fix any remaining unquoted property names
+        .replace(/([{,]\s*)([^"'\s][^:\s]*)\s*:/g, '$1"$2":')
+        // Fix any missing commas after quoted values
+        .replace(/("[^"]*")\s*([}\]])/g, '$1,$2')
+        .replace(/("[^"]*")\s*({)/g, '$1,$2')
+        // Fix any missing commas between values
+        .replace(/([}\]])\s*([{[])/g, '$1,$2')
+        // Remove any extra commas
+        .replace(/,\s*([}\]])/g, '$1')
+        // Fix any missing commas between properties
+        .replace(/}\s*{/g, '},{')
+        .replace(/]\s*{/g, '],{')
+        .replace(/}\s*\[/g, '},[')
+        .replace(/]\s*\[/g, '],[')
+        // Remove any double commas
+        .replace(/,,+/g, ',')
 
       // Parse the cleaned JSON string
       return JSON.parse(cleanJson)

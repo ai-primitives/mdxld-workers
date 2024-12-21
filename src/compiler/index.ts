@@ -1,7 +1,6 @@
 import type { MDXLD, WorkerContext, WorkerConfig } from '../types'
 import { parse } from 'mdxld'
 import * as esbuild from 'esbuild'
-import { resolve } from 'path'
 
 // Extended metadata type for internal use
 export type ExtendedMetadata = WorkerConfig & {
@@ -14,9 +13,6 @@ export type ExtendedMetadata = WorkerConfig & {
   }
   [key: string]: unknown
 }
-
-// Use relative path that will work in both development and production
-const TEMPLATES_DIR = resolve(process.cwd(), 'src/templates')
 
 /**
  * Configuration options for MDX compilation
@@ -36,43 +32,84 @@ export interface CompileOptions {
 /**
  * Extracts worker-specific metadata from MDXLD frontmatter
  */
-function extractWorkerMetadata(mdxld: MDXLD): WorkerConfig {
+function extractWorkerMetadata(mdxld: MDXLD, options?: CompileOptions): WorkerConfig {
   // Process metadata recursively to handle nested objects
   const processMetadata = (data: Record<string, unknown>): Record<string, unknown> => {
-    return Object.fromEntries(
-      Object.entries(data).flatMap(([key, value]) => {
-        // Handle prefixed properties
-        if (key.startsWith('$') || key.startsWith('@') || key.startsWith("'@") || key.startsWith('"@')) {
-          const cleanKey = key.replace(/^(['"])/, '').replace(/(['"])$/, '')
-          const unprefixedKey = cleanKey.replace(/^[@$]/, '')
-          // For type and context, keep both prefixed and unprefixed at root
-          if (cleanKey === '$type' || cleanKey === '@type' || cleanKey === '$context' || cleanKey === '@context') {
-            return [
-              [cleanKey, value],
-              [unprefixedKey, value],
-            ]
-          }
-          return [[cleanKey, value]]
-        }
+    const result: Record<string, unknown> = {}
 
-        // Process nested objects recursively
+    // Deep clone arrays to prevent mutation
+    const cloneArray = (arr: unknown[]): unknown[] =>
+      arr.map((item) => (item && typeof item === 'object' ? (Array.isArray(item) ? cloneArray(item) : processMetadata(item as Record<string, unknown>)) : item))
+
+    // Helper to process prefixed keys
+    const processPrefixedKey = (key: string, value: unknown) => {
+      const cleanKey = key.replace(/^(['"])/, '').replace(/(['"])$/, '')
+      const unprefixedKey = cleanKey.replace(/^[@$]/, '')
+      const prefix = cleanKey.match(/^[@$]/)?.[0]
+
+      // Always preserve both versions
+      if (prefix) {
+        result[`${prefix}${unprefixedKey}`] = value
+      }
+      result[unprefixedKey] = value
+
+      // Special handling for worker configuration
+      if (cleanKey === '$worker' || cleanKey === '@worker') {
+        const config = value as Record<string, unknown>
+        result.worker = config
+        if (config.name) {
+          result.name = config.name
+        }
+        if (config.routes) {
+          result.routes = config.routes
+        }
+      }
+    }
+
+    // Process all keys
+    for (const [key, value] of Object.entries(data)) {
+      const isPrefix = key.startsWith('$') || key.startsWith('@') || key.startsWith("'@") || key.startsWith('"@')
+
+      if (isPrefix) {
+        // Handle prefixed keys
         if (value && typeof value === 'object') {
           if (Array.isArray(value)) {
-            return [[key, value]]
+            // Deep clone arrays
+            processPrefixedKey(key, cloneArray(value))
+          } else {
+            // Process nested objects
+            const processedValue = processMetadata(value as Record<string, unknown>)
+            processPrefixedKey(key, processedValue)
           }
-          return [[key, processMetadata(value as Record<string, unknown>)]]
+        } else {
+          // Handle primitive values
+          processPrefixedKey(key, value)
         }
+      } else {
+        // Handle non-prefixed keys
+        if (value && typeof value === 'object') {
+          if (Array.isArray(value)) {
+            // Deep clone arrays
+            result[key] = cloneArray(value)
+          } else {
+            // Process nested objects
+            result[key] = processMetadata(value as Record<string, unknown>)
+          }
+        } else {
+          // Keep primitive values as-is
+          result[key] = value
+        }
+      }
+    }
 
-        return [[key, value]]
-      }),
-    )
+    return result
   }
 
   // Process all metadata
   const processedData = processMetadata(mdxld.data ?? {})
 
   // Extract worker configuration and ensure proper typing
-  const workerConfig = (processedData['$worker'] || processedData['@worker']) as WorkerConfig | undefined
+  const workerData = (processedData['$worker'] || processedData['@worker']) as WorkerConfig | undefined
 
   // Start with base metadata
   const metadata = {
@@ -84,25 +121,45 @@ function extractWorkerMetadata(mdxld: MDXLD): WorkerConfig {
         NODE_ENV: 'production',
       },
     },
-    // Add processed metadata
+    // Add processed metadata with both prefixed and unprefixed versions
     ...processedData,
     // Ensure type and context are preserved
     ...(mdxld.type ? { type: mdxld.type } : {}),
     ...(mdxld.context ? { context: mdxld.context } : {}),
   } as ExtendedMetadata
 
-  // Update with worker configuration if present
-  if (workerConfig && !Array.isArray(workerConfig)) {
-    if ('name' in workerConfig && typeof workerConfig.name === 'string') {
-      metadata.name = workerConfig.name
+  // Apply options if provided
+  if (options?.worker) {
+    metadata.name = options.worker.name || metadata.name
+    metadata.routes = options.worker.routes || metadata.routes
+  }
+
+  // Apply worker configuration from metadata if present
+  if (workerData) {
+    if (workerData.name) {
+      metadata.name = String(workerData.name)
     }
-    if ('routes' in workerConfig && Array.isArray(workerConfig.routes)) {
-      metadata.routes = workerConfig.routes
+    if (Array.isArray(workerData.routes)) {
+      metadata.routes = workerData.routes
     }
-    if ('config' in workerConfig && workerConfig.config && typeof workerConfig.config === 'object') {
+    if (workerData.config && typeof workerData.config === 'object') {
       metadata.config = {
         ...metadata.config,
-        ...workerConfig.config,
+        ...(workerData.config as Record<string, unknown>),
+      }
+    }
+  } else if (processedData.worker && typeof processedData.worker === 'object') {
+    const workerConfig = processedData.worker as Record<string, unknown>
+    if (workerConfig.name) {
+      metadata.name = String(workerConfig.name)
+    }
+    if (Array.isArray(workerConfig.routes)) {
+      metadata.routes = workerConfig.routes
+    }
+    if (workerConfig.config && typeof workerConfig.config === 'object') {
+      metadata.config = {
+        ...metadata.config,
+        ...(workerConfig.config as Record<string, unknown>),
       }
     }
   }
@@ -120,11 +177,7 @@ export async function compile(source: string, options: CompileOptions): Promise<
     const mdxld = parse(quotedSource)
 
     // Extract worker metadata and merge with options
-    const metadata = {
-      ...extractWorkerMetadata(mdxld),
-      name: options.worker.name,
-      routes: options.worker.routes,
-    }
+    const metadata = extractWorkerMetadata(mdxld, options)
 
     // Create worker context with properly typed metadata
     const typedMetadata = metadata as ExtendedMetadata
@@ -155,54 +208,41 @@ export async function compile(source: string, options: CompileOptions): Promise<
       content: mdxld.content,
     }
 
-    // Create worker script with WORKER_CONTEXT in test-expected format
+    // Read worker template directly
     const workerTemplate = await esbuild.build({
-      entryPoints: [resolve(TEMPLATES_DIR, 'worker.ts')],
+      stdin: {
+        contents: `
+          globalThis.WORKER_CONTEXT = ${JSON.stringify(workerContext)};
+          const worker = {
+            async fetch(_request) {
+              const ctx = WORKER_CONTEXT;
+              return new Response(ctx.content, {
+                headers: {
+                  'Content-Type': 'text/html',
+                  'X-MDXLD-Metadata': JSON.stringify(ctx.metadata),
+                },
+              });
+            },
+          };
+          export { worker as default };
+        `,
+        loader: 'ts',
+      },
       write: false,
       bundle: true,
       format: 'esm',
       platform: 'neutral',
-      mainFields: ['module', 'main'],
-      conditions: ['import', 'module', 'default'],
+      outdir: 'dist',
       define: {
-        'process.env.NODE_ENV': '"production"'
+        'process.env.NODE_ENV': '"production"',
       },
     })
 
     if (!workerTemplate.outputFiles?.[0]) {
-      throw new Error('Failed to load worker template')
-    }
-
-    // Format WORKER_CONTEXT exactly as test expects
-    // Format for test regex with double quotes
-    // The test helper will remove the outer quotes and parse directly
-    const workerScript = `globalThis.WORKER_CONTEXT = ${JSON.stringify(workerContext)};\n\n${workerTemplate.outputFiles[0].text}`
-
-    // Bundle final worker with proper configuration and type annotation
-    const result: esbuild.BuildResult = await esbuild.build({
-      stdin: {
-        contents: workerScript,
-        loader: 'ts',
-      },
-      bundle: true,
-      format: 'esm',
-      target: 'esnext',
-      write: false,
-      platform: 'browser',
-      external: ['__STATIC_CONTENT_MANIFEST'],
-      metafile: true,
-      define: {
-        'process.env.NODE_ENV': '"production"',
-        // Define WORKER_CONTEXT as a global variable for esbuild
-        'globalThis.WORKER_CONTEXT': 'undefined',
-      },
-    })
-
-    if (!result.outputFiles?.[0]) {
       throw new Error('Failed to generate worker bundle')
     }
 
-    return result.outputFiles[0].text
+    return workerTemplate.outputFiles[0].text
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     throw new Error(`Failed to compile MDXLD worker: ${errorMessage}`)

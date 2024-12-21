@@ -10,21 +10,15 @@ export default defineConfig({
   minify: false,
   target: 'esnext',
   outDir: 'dist',
-  noExternal: ['mdxld'],
+  external: ['mdxld'],
   esbuildOptions(options) {
-    // Use browser platform for better worker compatibility
-    options.platform = 'neutral'
+    options.platform = 'node'
     options.format = 'esm'
     options.bundle = true
     options.mainFields = ['module', 'main']
-    options.conditions = ['import', 'module', 'default']
-    // Keep only essential defines
+    options.conditions = ['import', 'module']
     options.define = {
       'process.env.NODE_ENV': '"production"'
     }
-    // Ensure proper ESM handling
-    options.splitting = false
-    options.treeShaking = true
-    options.logLevel = 'verbose'
   }
 })
