@@ -165,7 +165,6 @@ export async function compile(source: string, options: CompileOptions): Promise<
       define: {
         'process.env.NODE_ENV': '"production"',
       },
-      inject: [resolve(process.cwd(), 'src/shims/import-meta.js')],
     })
 
     if (!workerTemplate.outputFiles?.[0]) {

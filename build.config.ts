@@ -20,10 +20,12 @@ export default defineConfig({
     options.conditions = ['import', 'module']
     // Keep only essential defines
     options.define = {
-      'process.env.NODE_ENV': '"production"'
+      'process.env.NODE_ENV': '"production"',
+      'import.meta.url': '"file:///worker.js"'
     }
     // Ensure proper ESM handling
     options.splitting = false
     options.treeShaking = true
+    options.logLevel = 'verbose'
   }
 })
