@@ -9,42 +9,84 @@ describe('MDXLD Worker Compiler', () => {
     }
   }
 
-  test('compiles MDXLD with $ prefix metadata', async () => {
+  /**
+   * Helper to extract WORKER_CONTEXT from compiled output
+   */
+  function extractWorkerContext(output: string): any {
+    const match = output.match(/WORKER_CONTEXT\s*:\s*("[^"]+"|'[^']+')/)?.[1]
+    if (!match) throw new Error('WORKER_CONTEXT not found in output')
+    return JSON.parse(JSON.parse(match)) // Double parse to handle stringified JSON
+  }
+
+  test('extracts metadata with $ prefix', async () => {
     const source = `---
 $type: Article
+$id: test-123
 $context: https://schema.org/
 title: Test Article
-$worker:
-  name: custom-worker
-  routes:
-    - /articles/*
 ---
 
-# Test Content`
+# Content`
 
     const result = await compile(source, defaultOptions)
-    expect(result).toContain('WORKER_CONTEXT')
-    expect(result).toContain('Article')
-    expect(result).toContain('schema.org')
-    expect(result).toContain('custom-worker')
-    expect(result).toContain('/articles/*')
+    const context = extractWorkerContext(result)
+
+    expect(context.metadata.type).toBe('Article')
+    expect(context.metadata.$id).toBe('test-123')
+    expect(context.metadata.context).toBe('https://schema.org/')
+    expect(context.metadata.title).toBeUndefined()
   })
 
   test('handles both $ and @ prefix metadata', async () => {
     const source = `---
 $type: Article
 @context: https://schema.org/
-title: Test Article
+$worker:
+  name: custom-worker
+  routes:
+    - /articles/*
 ---
 
 # Mixed Prefix Test`
 
     const result = await compile(source, defaultOptions)
-    expect(result).toContain('Article')
-    expect(result).toContain('schema.org')
+    const context = extractWorkerContext(result)
+
+    expect(context.metadata.type).toBe('Article')
+    expect(context.metadata.context).toBe('https://schema.org/')
+    expect(context.metadata.name).toBe('custom-worker')
+    expect(context.metadata.routes).toContain('/articles/*')
   })
 
-  test('preserves unstructured content', async () => {
+  test('preserves complex metadata values', async () => {
+    const source = `---
+$type: Article
+$context:
+  '@vocab': https://schema.org/
+  dc: http://purl.org/dc/terms/
+$worker:
+  name: metadata-worker
+  config:
+    memory: 128
+    env:
+      NODE_ENV: production
+---
+
+# Complex Metadata Test`
+
+    const result = await compile(source, defaultOptions)
+    const context = extractWorkerContext(result)
+
+    expect(context.metadata.context).toEqual({
+      '@vocab': 'https://schema.org/',
+      dc: 'http://purl.org/dc/terms/'
+    })
+    expect(context.metadata.name).toBe('metadata-worker')
+    expect(context.metadata.config.memory).toBe(128)
+    expect(context.metadata.config.env.NODE_ENV).toBe('production')
+  })
+
+  test('handles unstructured content with markdown', async () => {
     const source = `---
 $type: Article
 ---
@@ -52,11 +94,18 @@ $type: Article
 # Markdown Content
 ## With Headers
 - And lists
-- Multiple items`
+- Multiple items
+
+\`\`\`js
+const code = 'blocks';
+\`\`\``
 
     const result = await compile(source, defaultOptions)
-    expect(result).toContain('Markdown Content')
-    expect(result).toContain('With Headers')
-    expect(result).toContain('Multiple items')
+    const context = extractWorkerContext(result)
+
+    expect(context.content).toContain('Markdown Content')
+    expect(context.content).toContain('With Headers')
+    expect(context.content).toContain('Multiple items')
+    expect(context.content).toContain('const code = ')
   })
 })
