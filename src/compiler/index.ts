@@ -1,6 +1,7 @@
-import type { MDXLD } from '../types'
+import type { MDXLD, WorkerContext, WorkerConfig } from '../types'
 import { parse } from 'mdxld'
 import * as esbuild from 'esbuild'
+import path from 'path'
 
 /**
  * Configuration options for MDX compilation
@@ -18,41 +19,25 @@ export interface CompileOptions {
 }
 
 /**
- * Worker-specific metadata extracted from YAML-LD
- */
-interface WorkerMetadata {
-  /** Worker route patterns */
-  routes?: string[]
-  /** Worker name override */
-  name?: string
-  /** Additional worker configuration */
-  config?: Record<string, unknown>
-}
-
-/**
- * Worker configuration from YAML-LD frontmatter
- */
-interface WorkerConfig {
-  /** Worker route patterns */
-  routes?: string[]
-  /** Worker name */
-  name?: string
-  /** Additional configuration */
-  [key: string]: unknown
-}
-
-/**
  * Extracts worker-specific metadata from MDXLD frontmatter
  */
-function extractWorkerMetadata(mdxld: MDXLD): WorkerMetadata {
-  const metadata: WorkerMetadata = {}
+function extractWorkerMetadata(mdxld: MDXLD): WorkerConfig {
+  const metadata: WorkerConfig = {
+    name: '',
+    routes: []
+  }
 
   // Extract $worker or @worker configuration
   const workerConfig = (mdxld.data['$worker'] || mdxld.data['@worker']) as WorkerConfig | undefined
   if (workerConfig && typeof workerConfig === 'object') {
-    metadata.routes = Array.isArray(workerConfig.routes) ? workerConfig.routes : undefined
-    metadata.name = typeof workerConfig.name === 'string' ? workerConfig.name : undefined
-    metadata.config = workerConfig
+    metadata.name = typeof workerConfig.name === 'string' ? workerConfig.name : ''
+    metadata.routes = Array.isArray(workerConfig.routes) ? workerConfig.routes : []
+    // Copy additional configuration
+    Object.entries(workerConfig).forEach(([key, value]) => {
+      if (key !== 'name' && key !== 'routes') {
+        metadata[key] = value
+      }
+    })
   }
 
   return metadata
@@ -70,19 +55,23 @@ export async function compile(source: string, options: CompileOptions): Promise<
     const metadata = extractWorkerMetadata(mdxld)
 
     // Create worker context
-    const workerContext = {
+    const workerContext: WorkerContext = {
       metadata: {
-        ...metadata,
-        context: mdxld.context,
         type: mdxld.type,
-        data: mdxld.data
+        context: mdxld.context,
+        ...metadata,
+        // Include all $ and @ prefixed properties
+        ...Object.fromEntries(
+          Object.entries(mdxld.data)
+            .filter(([key]) => key.startsWith('$') || key.startsWith('@'))
+        )
       },
       content: mdxld.content
     }
 
     // Bundle with esbuild
     const result = await esbuild.build({
-      entryPoints: ['./src/templates/worker.ts'],
+      entryPoints: [path.resolve(__dirname, '../templates/worker.ts')],
       bundle: true,
       write: false,
       format: 'esm',
