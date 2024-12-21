@@ -1,9 +1,10 @@
-/**
- * A placeholder function that adds two numbers
- * @param a First number
- * @param b Second number
- * @returns The sum of a and b
- */
-export function add(a: number, b: number): number {
-  return a + b
-}
+import { compile } from './compiler'
+import { deployWrangler as deploy } from './deploy/wrangler'
+import { deployPlatform } from './deploy/platform'
+import type { CompileOptions, DeployOptions, PlatformDeployOptions } from './deploy/types'
+
+export { compile, deploy, deployPlatform }
+export type { CompileOptions, DeployOptions, PlatformDeployOptions }
+
+// Re-export common types
+export * from './deploy/types'

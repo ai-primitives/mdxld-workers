@@ -25,6 +25,8 @@ export interface PlatformOptions {
   name: string
 }
 
+export type PlatformDeployOptions = Required<PlatformOptions>
+
 export interface WranglerOptions {
   name: string
   routes?: string
@@ -34,3 +36,5 @@ export interface WranglerOptions {
 export interface WranglerConfig extends WorkerConfig {
   env?: Record<string, string>
 }
+
+export type DeployOptions = WranglerConfig
