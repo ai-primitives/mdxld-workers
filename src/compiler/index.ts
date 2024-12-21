@@ -4,16 +4,25 @@ import type { MDXLD } from 'mdxld'
 import * as esbuild from 'esbuild'
 
 // Extended metadata type for internal use
-export type ExtendedMetadata = WorkerConfig & {
+export type ExtendedMetadata = {
+  name: string
+  routes?: string[]
   type?: string
+  '@type'?: string
+  '$type'?: string
   context?: string | Record<string, unknown>
+  '@context'?: string | Record<string, unknown>
+  '$context'?: string | Record<string, unknown>
+  id?: string
+  '@id'?: string
+  '$id'?: string
   language?: string
   base?: string
   vocab?: string
   list?: unknown[]
   set?: Set<unknown>
   reverse?: boolean
-  config?: {
+  config: {
     memory?: number
     env?: Record<string, string>
     [key: string]: unknown
@@ -40,225 +49,163 @@ export interface CompileOptions {
  * Extracts worker-specific metadata from MDXLD frontmatter
  */
 function extractWorkerMetadata(mdxld: MDXLD, options?: CompileOptions): ExtendedMetadata {
-  // Process metadata recursively to handle nested objects
+  // Process metadata recursively with proper type handling
   const processMetadata = (data: Record<string, unknown>): Record<string, unknown> => {
     if (!data || typeof data !== 'object') return {}
 
     const result: Record<string, unknown> = {}
 
-    // Deep clone arrays
-    const cloneArray = (arr: unknown[]): unknown[] =>
-      arr.map((item) => {
-        if (Array.isArray(item)) return cloneArray(item)
-        if (item && typeof item === 'object') return processMetadata(item as Record<string, unknown>)
-        return item
-      })
-
-    // Process all keys
-    for (const [key, value] of Object.entries(data)) {
-      // Remove quotes from keys if present
-      const cleanKey = key.replace(/^(['"])(.*)\1$/, '$2')
-      const prefix = cleanKey.match(/^[@$]/)?.[0]
-      const unprefixedKey = prefix ? cleanKey.slice(1) : cleanKey
-
-      // Process value based on type
-      const processedValue = Array.isArray(value)
-        ? cloneArray(value)
-        : value && typeof value === 'object'
-          ? processMetadata(value as Record<string, unknown>)
-          : value
-
-      // Store both prefixed and unprefixed versions
-      if (prefix) {
-        // Store original prefixed version
-        result[cleanKey] = processedValue
-        // Store unprefixed version
-        result[unprefixedKey] = processedValue
-        // Store alternate prefix version
-        const otherPrefix = prefix === '@' ? '$' : '@'
-        result[`${otherPrefix}${unprefixedKey}`] = processedValue
-      } else {
-        // Store original unprefixed version
-        result[cleanKey] = processedValue
-      }
-
-      // Special handling for context object
-      if ((cleanKey === 'context' || cleanKey === '@context' || cleanKey === '$context') && typeof processedValue === 'object') {
-        const contextObj = processedValue as Record<string, unknown>
-        const newContext: Record<string, unknown> = {}
-
-        // Process context properties
-        Object.entries(contextObj).forEach(([k, v]) => {
-          if (k === 'vocab') {
-            newContext['@vocab'] = v
-          } else if (k.startsWith('@') || k.startsWith('$')) {
-            // Preserve prefixed properties
-            newContext[k] = v
+    // Helper to process special fields
+    const processSpecialField = (field: string, value: unknown): unknown => {
+      if (field === 'context' && typeof value === 'object') {
+        const contextObj = value as Record<string, unknown>
+        const processedContext: Record<string, unknown> = {}
+        
+        for (const [k, v] of Object.entries(contextObj)) {
+          if (k === 'vocab' || k === '@vocab') {
+            processedContext['@vocab'] = v
           } else {
-            newContext[k] = v
+            processedContext[k] = v
           }
-        })
-
-        result.context = newContext
+        }
+        return processedContext
       }
+      
+      if (Array.isArray(value)) return value
+      if (typeof value === 'object' && value !== null) return value
+      return typeof value === 'string' ? value : String(value)
+    }
 
-      // Special handling for worker configuration
-      if (cleanKey === 'worker' || cleanKey === '@worker' || cleanKey === '$worker') {
-        const config = processedValue as Record<string, unknown>
-        if (config?.name) result.name = config.name
-        if (config?.routes) result.routes = config.routes
-      }
+    // Process all fields
+    for (const [key, value] of Object.entries(data)) {
+      const unprefixedKey = key.replace(/^[@$]/, '')
+      const isSpecialField = specialFields.includes(unprefixedKey as SpecialField)
 
-      // Special handling for list metadata
-      if (cleanKey === 'list' || cleanKey === '@list' || cleanKey === '$list') {
-        result.list = Array.isArray(processedValue) ? processedValue : [processedValue]
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        // Process nested objects
+        result[key] = processMetadata(value as Record<string, unknown>)
+      } else if (Array.isArray(value)) {
+        // Handle arrays
+        result[key] = value.map(item => 
+          typeof item === 'object' && item !== null
+            ? processMetadata(item as Record<string, unknown>)
+            : item
+        )
+      } else if (isSpecialField) {
+        // Process special fields with all prefix variants
+        const processedValue = processSpecialField(unprefixedKey, value)
+        result[unprefixedKey] = processedValue
+        result[`@${unprefixedKey}`] = processedValue
+        result[`$${unprefixedKey}`] = processedValue
+      } else {
+        // Handle regular fields
+        result[key] = value
       }
     }
 
     return result
   }
 
-  // Process all metadata
+  // Process metadata with proper handling of nested structures
   const processedData = processMetadata(mdxld.data ?? {})
 
-  // Handle special fields from mdxld and data
+  // Process special fields from mdxld and frontmatter
   const specialFields = ['type', 'context', 'id', 'language', 'base', 'vocab', 'list', 'set', 'reverse'] as const
-  specialFields.forEach((field) => {
-    // Try to get value from all possible sources, prioritizing prefixed versions
-    const value = 
-      processedData[`$${field}`] || 
-      processedData[`@${field}`] || 
-      processedData[field] ||
-      mdxld[field]
+  type SpecialField = typeof specialFields[number]
 
+  // Process special fields from both mdxld and processed data
+  const combinedData = {
+    ...mdxld,
+    ...processedData
+  }
+
+  // Process special fields with proper type handling
+  for (const field of specialFields) {
+    const value = combinedData[field]
     if (value !== undefined) {
-      // Store unprefixed version
-      processedData[field] = value
-      // Store prefixed versions
-      processedData[`@${field}`] = value
-      processedData[`$${field}`] = value
+      const processedValue = field === 'context' && typeof value === 'object'
+        ? value as Record<string, unknown>
+        : String(value)
 
-      // Special handling for context object
+      processedData[field] = processedValue
+      processedData[`@${field}`] = processedValue
+      processedData[`$${field}`] = processedValue
+
       if (field === 'context' && typeof value === 'object') {
         const contextObj = value as Record<string, unknown>
-        const processedContext: Record<string, unknown> = {}
-        
-        Object.entries(contextObj).forEach(([k, v]) => {
-          // Handle vocab specially
-          if (k === 'vocab' || k === '@vocab' || k === '$vocab') {
-            processedContext['@vocab'] = v
-          } else {
-            // Store both prefixed and unprefixed versions
-            const cleanKey = k.replace(/^[@$]/, '')
-            processedContext[k] = v
-            processedContext[cleanKey] = v
-          }
-        })
-        
-        processedData.context = processedContext
-        processedData['@context'] = processedContext
-        processedData['$context'] = processedContext
-      }
-
-      // Special handling for Set values
-      if (field === 'set' && Array.isArray(value)) {
-        processedData.set = new Set(value)
+        if (contextObj['@vocab'] || contextObj.vocab) {
+          processedData['@vocab'] = contextObj['@vocab'] || contextObj.vocab
+        }
       }
     }
-  })
+  }
 
-  // Process nested objects and arrays
-  Object.entries(processedData).forEach(([key, value]) => {
-    if (typeof value === 'object' && value !== null) {
-      // Preserve object structure
-      processedData[key] = value
-
-      // Handle prefixed versions if needed
-      const baseKey = key.replace(/^[@$]/, '')
-      if (key.startsWith('@') || key.startsWith('$')) {
-        processedData[`@${baseKey}`] = value
-        processedData[`$${baseKey}`] = value
-        processedData[baseKey] = value
-      }
+  // Extract and process worker configuration from all possible sources
+  const extractWorkerConfig = (config: Record<string, unknown>): Partial<WorkerConfig> => {
+    if (!config || typeof config !== 'object') return {}
+    return {
+      name: config.name ? String(config.name) : undefined,
+      routes: Array.isArray(config.routes) ? config.routes : undefined,
+      config: typeof config.config === 'object' ? config.config as Record<string, unknown> : undefined
     }
-  })
+  }
 
-  // Extract worker configuration and ensure proper typing
-  const workerData = (processedData['$worker'] || processedData['@worker']) as WorkerConfig | undefined
+  // Process all worker config sources in order of precedence
+  const workerConfigs = [
+    options?.worker,
+    processedData.worker,
+    processedData['$worker'],
+    processedData['@worker']
+  ].filter((config): config is Record<string, unknown> => 
+    config !== undefined && typeof config === 'object'
+  ).map(extractWorkerConfig)
 
-  // Start with base metadata
-  const baseMetadata: ExtendedMetadata = {
-    name: '',
-    routes: [],
+  // Merge worker configurations
+  const mergedWorkerConfig: WorkerConfig = {
+    name: workerConfigs.find(c => c.name)?.name ?? '',
+    routes: workerConfigs.find(c => c.routes)?.routes ?? [],
     config: {
       memory: 128,
       env: {
         NODE_ENV: 'production',
       },
-    },
-    // Ensure all special fields are preserved
-    type: mdxld.type,
-    context: mdxld.context,
-    language: mdxld.language,
-    base: mdxld.base,
-    vocab: mdxld.vocab,
-    list: mdxld.list,
-    set: mdxld.set,
-    reverse: mdxld.reverse
+      ...workerConfigs.reduce((acc, c) => ({ ...acc, ...(c.config || {}) }), {}),
+      ...(processedData.config as Record<string, unknown> || {})
+    }
   }
 
-  // Add prefixed properties with proper type assertions
-  const prefixedMetadata = {
-    '@type': processedData['@type'] as string | undefined,
-    '$type': processedData['$type'] as string | undefined,
-    '@id': processedData['@id'] as string | undefined,
-    '$id': processedData['$id'] as string | undefined,
-    '@context': processedData['@context'] as string | Record<string, unknown> | undefined,
-    '$context': processedData['$context'] as string | Record<string, unknown> | undefined,
-    // Add special fields without prefix if they exist with either prefix
-    type: (processedData['@type'] || processedData['$type']) as string | undefined,
-    id: (processedData['@id'] || processedData['$id']) as string | undefined,
-    context: (processedData['@context'] || processedData['$context']) as string | Record<string, unknown> | undefined
+  // Process special fields with proper type handling
+  const processSpecialValue = (value: unknown): string | Record<string, unknown> | unknown[] | Set<unknown> | boolean | undefined => {
+    if (value === undefined) return undefined
+    if (typeof value === 'object') return value as Record<string, unknown> | unknown[] | Set<unknown>
+    if (typeof value === 'boolean') return value
+    return String(value)
   }
 
-  // Combine base metadata with processed data and prefixed properties
+  // Apply special value processing to metadata fields
+  for (const field of specialFields) {
+    const value = combinedData[field]
+    if (value !== undefined) {
+      const processedValue = processSpecialValue(value)
+      processedData[field] = processedValue
+      processedData[`@${field}`] = processedValue
+      processedData[`$${field}`] = processedValue
+    }
+  }
+
+  // Create final metadata combining all processed data
   const metadata: ExtendedMetadata = {
-    ...baseMetadata,
+    ...mergedWorkerConfig,
     ...processedData,
-    ...prefixedMetadata
-  }
-
-  // Apply options if provided
-  if (options?.worker) {
-    metadata.name = options.worker.name || metadata.name
-    metadata.routes = options.worker.routes || metadata.routes
-  }
-
-  // Extract worker configuration from metadata if present
-  const extractWorkerConfig = (config: Record<string, unknown>) => {
-    if (config.name) {
-      metadata.name = String(config.name)
+    // Ensure required fields are present
+    name: mergedWorkerConfig.name,
+    config: {
+      memory: 128,
+      env: {
+        NODE_ENV: 'production'
+      },
+      ...mergedWorkerConfig.config
     }
-    if (Array.isArray(config.routes)) {
-      metadata.routes = config.routes
-    }
-    if (config.config && typeof config.config === 'object') {
-      metadata.config = {
-        ...metadata.config,
-        ...(config.config as Record<string, unknown>),
-      }
-    }
-  }
-
-  // Try all possible worker config sources
-  if (workerData) {
-    extractWorkerConfig(workerData)
-  } else if (processedData.worker && typeof processedData.worker === 'object') {
-    extractWorkerConfig(processedData.worker as Record<string, unknown>)
-  } else if (processedData['$worker'] && typeof processedData['$worker'] === 'object') {
-    extractWorkerConfig(processedData['$worker'] as Record<string, unknown>)
-  } else if (processedData['@worker'] && typeof processedData['@worker'] === 'object') {
-    extractWorkerConfig(processedData['@worker'] as Record<string, unknown>)
   }
 
   return metadata
@@ -407,6 +354,15 @@ export async function compile(source: string, options: CompileOptions): Promise<
     const workerContext: WorkerContext = {
       metadata: {
         ...metadata,
+        // Handle special fields with proper type assertions
+        type: (metadata.$type ?? metadata['@type'] ?? metadata.type) as string | undefined,
+        context: (() => {
+          const ctx = metadata.$context ?? metadata['@context'] ?? metadata.context
+          if (!ctx) return undefined
+          return typeof ctx === 'object' ? ctx as Record<string, unknown> : String(ctx)
+        })(),
+        id: (metadata.$id ?? metadata['@id'] ?? metadata.id) as string | undefined,
+        // Preserve config with defaults
         config: {
           memory: 128,
           env: {
@@ -417,6 +373,54 @@ export async function compile(source: string, options: CompileOptions): Promise<
       },
       content: mdxld.content,
     }
+
+    // Process nested metadata structures
+    function processNestedMetadata(obj: ExtendedMetadata): ExtendedMetadata {
+      const result: ExtendedMetadata = {
+        name: obj.name,
+        config: {
+          memory: obj.config?.memory ?? 128,
+          env: obj.config?.env ?? { NODE_ENV: 'production' },
+          ...obj.config
+        }
+      }
+
+      for (const [key, value] of Object.entries(obj)) {
+        if (key === 'name' || key === 'config') continue // Skip already handled fields
+
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+          // Process nested objects while preserving type information
+          if (key === 'config') {
+            result.config = {
+              memory: (value as ExtendedMetadata['config']).memory ?? 128,
+              env: (value as ExtendedMetadata['config']).env ?? { NODE_ENV: 'production' },
+              ...(value as Record<string, unknown>)
+            }
+          } else {
+            result[key] = value as Record<string, unknown>
+          }
+        } else if (Array.isArray(value)) {
+          // Preserve arrays
+          result[key] = value
+        } else {
+          // Handle special fields with proper prefix handling
+          const unprefixedKey = key.replace(/^[@$]/, '')
+          if (['type', 'context', 'id'].includes(unprefixedKey)) {
+            const processedValue = String(value)
+            result[unprefixedKey] = processedValue
+            result[`@${unprefixedKey}`] = processedValue
+            result[`$${unprefixedKey}`] = processedValue
+          } else {
+            result[key] = value
+          }
+        }
+      }
+
+      return result
+    }
+
+    // Process nested structures in metadata while preserving required fields
+    workerContext.metadata = processNestedMetadata(workerContext.metadata as ExtendedMetadata)
 
     // Generate worker code as ESM
     const workerCode = `

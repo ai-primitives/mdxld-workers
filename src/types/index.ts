@@ -73,6 +73,15 @@ export interface WorkerConfig {
   name: string
   /** Worker routes */
   routes?: string[]
+  /** Worker configuration */
+  config: {
+    /** Memory limit in MB */
+    memory?: number
+    /** Environment variables */
+    env?: Record<string, string>
+    /** Additional configuration */
+    [key: string]: unknown
+  }
   /** Additional configuration */
   [key: string]: unknown
 }

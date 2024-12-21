@@ -24,7 +24,8 @@ const worker: WorkerExports = {
           }
           // Ensure proper string escaping for special characters
           if (typeof value === 'string') {
-            return value.replace(/[\u0000-\u001F\u2028\u2029"\\]/g, char => {
+            // eslint-disable-next-line no-control-regex
+            return value.replace(/[\u0000-\u001f\u2028\u2029"\\]/g, char => {
               const escaped = char.charCodeAt(0).toString(16).padStart(4, '0')
               return `\\u${escaped}`
             })
