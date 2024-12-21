@@ -9,5 +9,11 @@ export default defineConfig({
   minify: false,
   target: 'esnext',
   outDir: 'dist',
-  shims: true
+  shims: true,
+  esbuildOptions(options) {
+    options.define = {
+      ...options.define,
+      'process.env.NODE_ENV': '"production"'
+    }
+  }
 })

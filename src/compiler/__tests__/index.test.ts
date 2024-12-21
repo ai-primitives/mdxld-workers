@@ -108,4 +108,70 @@ const code = 'blocks';
     expect(context.content).toContain('Multiple items')
     expect(context.content).toContain('const code = ')
   })
+
+  test('handles complex YAML-LD metadata', async () => {
+    const source = `---
+$type: Article
+$context:
+  schema: https://schema.org/
+  dc: http://purl.org/dc/terms/
+$list:
+  - value1
+  - value2
+nested:
+  $type: Person
+  $id: person-123
+---
+# Content
+`
+    const result = await compile(source, defaultOptions)
+    const context = extractWorkerContext(result)
+
+    expect(context.metadata.type).toBe('Article')
+    expect(context.metadata.context).toEqual({
+      schema: 'https://schema.org/',
+      dc: 'http://purl.org/dc/terms/'
+    })
+    expect(context.metadata.list).toEqual(['value1', 'value2'])
+    expect(context.metadata.nested).toEqual({
+      type: 'Person',
+      id: 'person-123'
+    })
+  })
+
+  test('handles mixed @ and $ prefix metadata', async () => {
+    const source = `---
+$type: Article
+'@context': https://schema.org/
+$worker:
+  name: mixed-prefix-worker
+  routes:
+    - /articles/*
+nested:
+  '@type': Person
+  '$id': person-123
+  data:
+    age: 30
+    active: true
+---
+# Content
+`
+    const result = await compile(source, defaultOptions)
+    const context = extractWorkerContext(result)
+
+    expect(context.metadata.type).toBe('Article')
+    expect(context.metadata.context).toBe('https://schema.org/')
+    expect(context.metadata.worker).toEqual({
+      name: 'mixed-prefix-worker',
+      routes: ['/articles/*']
+    })
+    expect(context.metadata.nested).toEqual({
+      type: 'Person',
+      id: 'person-123',
+      data: {
+        age: 30,
+        active: true
+      }
+    })
+  })
 })
