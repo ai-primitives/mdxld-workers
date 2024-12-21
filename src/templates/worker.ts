@@ -17,7 +17,20 @@ const worker: WorkerExports = {
     return new Response(WORKER_CONTEXT.content, {
       headers: {
         'Content-Type': 'text/html',
-        'X-MDXLD-Metadata': JSON.stringify(WORKER_CONTEXT.metadata),
+        'X-MDXLD-Metadata': JSON.stringify(WORKER_CONTEXT.metadata, (key, value) => {
+          // Handle special cases for metadata serialization
+          if (value instanceof Set) {
+            return Array.from(value)
+          }
+          // Ensure proper string escaping for special characters
+          if (typeof value === 'string') {
+            return value.replace(/[\u0000-\u001F\u2028\u2029"\\]/g, char => {
+              const escaped = char.charCodeAt(0).toString(16).padStart(4, '0')
+              return `\\u${escaped}`
+            })
+          }
+          return value
+        }),
       },
     })
   },

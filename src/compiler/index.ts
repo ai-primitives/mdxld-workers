@@ -124,13 +124,41 @@ function extractWorkerMetadata(mdxld: MDXLD, options?: CompileOptions): Extended
   // Handle special fields from mdxld and data
   const specialFields = ['type', 'context', 'id', 'language', 'base', 'vocab', 'list', 'set', 'reverse'] as const
   specialFields.forEach((field) => {
-    const value = mdxld[field] || processedData[`$${field}`] || processedData[`@${field}`] || processedData[field]
+    // Try to get value from all possible sources, prioritizing prefixed versions
+    const value = 
+      processedData[`$${field}`] || 
+      processedData[`@${field}`] || 
+      processedData[field] ||
+      mdxld[field]
 
     if (value !== undefined) {
-      // Store all versions of the field
+      // Store unprefixed version
       processedData[field] = value
+      // Store prefixed versions
       processedData[`@${field}`] = value
       processedData[`$${field}`] = value
+
+      // Special handling for context object
+      if (field === 'context' && typeof value === 'object') {
+        const contextObj = value as Record<string, unknown>
+        const processedContext: Record<string, unknown> = {}
+        
+        Object.entries(contextObj).forEach(([k, v]) => {
+          // Handle vocab specially
+          if (k === 'vocab' || k === '@vocab' || k === '$vocab') {
+            processedContext['@vocab'] = v
+          } else {
+            // Store both prefixed and unprefixed versions
+            const cleanKey = k.replace(/^[@$]/, '')
+            processedContext[k] = v
+            processedContext[cleanKey] = v
+          }
+        })
+        
+        processedData.context = processedContext
+        processedData['@context'] = processedContext
+        processedData['$context'] = processedContext
+      }
 
       // Special handling for Set values
       if (field === 'set' && Array.isArray(value)) {
@@ -186,7 +214,11 @@ function extractWorkerMetadata(mdxld: MDXLD, options?: CompileOptions): Extended
     '@id': processedData['@id'] as string | undefined,
     '$id': processedData['$id'] as string | undefined,
     '@context': processedData['@context'] as string | Record<string, unknown> | undefined,
-    '$context': processedData['$context'] as string | Record<string, unknown> | undefined
+    '$context': processedData['$context'] as string | Record<string, unknown> | undefined,
+    // Add special fields without prefix if they exist with either prefix
+    type: (processedData['@type'] || processedData['$type']) as string | undefined,
+    id: (processedData['@id'] || processedData['$id']) as string | undefined,
+    context: (processedData['@context'] || processedData['$context']) as string | Record<string, unknown> | undefined
   }
 
   // Combine base metadata with processed data and prefixed properties
@@ -202,34 +234,31 @@ function extractWorkerMetadata(mdxld: MDXLD, options?: CompileOptions): Extended
     metadata.routes = options.worker.routes || metadata.routes
   }
 
-  // Apply worker configuration from metadata if present
+  // Extract worker configuration from metadata if present
+  const extractWorkerConfig = (config: Record<string, unknown>) => {
+    if (config.name) {
+      metadata.name = String(config.name)
+    }
+    if (Array.isArray(config.routes)) {
+      metadata.routes = config.routes
+    }
+    if (config.config && typeof config.config === 'object') {
+      metadata.config = {
+        ...metadata.config,
+        ...(config.config as Record<string, unknown>),
+      }
+    }
+  }
+
+  // Try all possible worker config sources
   if (workerData) {
-    if (workerData.name) {
-      metadata.name = String(workerData.name)
-    }
-    if (Array.isArray(workerData.routes)) {
-      metadata.routes = workerData.routes
-    }
-    if (workerData.config && typeof workerData.config === 'object') {
-      metadata.config = {
-        ...metadata.config,
-        ...(workerData.config as Record<string, unknown>),
-      }
-    }
+    extractWorkerConfig(workerData)
   } else if (processedData.worker && typeof processedData.worker === 'object') {
-    const workerConfig = processedData.worker as Record<string, unknown>
-    if (workerConfig.name) {
-      metadata.name = String(workerConfig.name)
-    }
-    if (Array.isArray(workerConfig.routes)) {
-      metadata.routes = workerConfig.routes
-    }
-    if (workerConfig.config && typeof workerConfig.config === 'object') {
-      metadata.config = {
-        ...metadata.config,
-        ...(workerConfig.config as Record<string, unknown>),
-      }
-    }
+    extractWorkerConfig(processedData.worker as Record<string, unknown>)
+  } else if (processedData['$worker'] && typeof processedData['$worker'] === 'object') {
+    extractWorkerConfig(processedData['$worker'] as Record<string, unknown>)
+  } else if (processedData['@worker'] && typeof processedData['@worker'] === 'object') {
+    extractWorkerConfig(processedData['@worker'] as Record<string, unknown>)
   }
 
   return metadata
