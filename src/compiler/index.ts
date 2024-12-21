@@ -172,9 +172,8 @@ function extractWorkerMetadata(mdxld: MDXLD, options?: CompileOptions): WorkerCo
  */
 export async function compile(source: string, options: CompileOptions): Promise<string> {
   try {
-    // Parse MDXLD content and ensure @ prefixes are properly quoted
-    const quotedSource = source.replace(/^(@\w+):/gm, '"$1":')
-    const mdxld = parse(quotedSource)
+    // Parse MDXLD content
+    const mdxld = parse(source)
 
     // Extract worker metadata and merge with options
     const metadata = extractWorkerMetadata(mdxld, options)
@@ -215,8 +214,8 @@ export async function compile(source: string, options: CompileOptions): Promise<
           // Define worker context without relying on import.meta
           globalThis.WORKER_CONTEXT = ${JSON.stringify(workerContext)};
           
-          // Export worker instance
-          const worker = {
+          // Export worker instance as ESM default export
+          export default {
             async fetch(_request) {
               return new Response(WORKER_CONTEXT.content, {
                 headers: {
@@ -226,15 +225,13 @@ export async function compile(source: string, options: CompileOptions): Promise<
               });
             },
           };
-          
-          globalThis.default = worker;
         `,
         loader: 'ts',
       },
       write: false,
       bundle: true,
-      format: 'iife',
-      platform: 'browser',
+      format: 'esm',
+      platform: 'node',
       target: ['esnext'],
       define: {
         'process.env.NODE_ENV': '"production"',
