@@ -2,18 +2,30 @@
  * Core MDXLD interface representing parsed MDX content with metadata
  */
 export interface MDXLD {
-  /** Unique identifier for the content */
+  /** Optional document ID */
   id?: string
-  /** Content type identifier */
+  /** Document type URI */
   type?: string
-  /** JSON-LD context URL or object */
+  /** JSON-LD context - can be string URI or object */
   context?: string | Record<string, unknown>
-  /** Frontmatter data including YAML-LD properties */
-  data?: Record<string, unknown>
-  /** Main content body */
+  /** Document language */
+  language?: string
+  /** Base URI */
+  base?: string
+  /** Vocabulary URI */
+  vocab?: string
+  /** Optional list value */
+  list?: unknown[]
+  /** Optional set value */
+  set?: Set<unknown>
+  /** Optional reverse flag */
+  reverse?: boolean
+  /** Frontmatter data excluding special $ and @ prefixed properties */
+  data: Record<string, unknown>
+  /** Document content excluding frontmatter */
   content: string
   /** Allow string indexing for metadata fields */
-  [key: string]: string | Record<string, unknown> | undefined
+  [key: string]: string | Record<string, unknown> | unknown[] | Set<unknown> | boolean | undefined
 }
 
 /**

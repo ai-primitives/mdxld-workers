@@ -1,17 +1,24 @@
-import type { MDXLD, WorkerContext, WorkerConfig } from '../types'
+import type { WorkerContext, WorkerConfig } from '../types'
 import { parse } from 'mdxld'
+import type { MDXLD } from 'mdxld'
 import * as esbuild from 'esbuild'
 
 // Extended metadata type for internal use
 export type ExtendedMetadata = WorkerConfig & {
   type?: string
   context?: string | Record<string, unknown>
+  language?: string
+  base?: string
+  vocab?: string
+  list?: unknown[]
+  set?: Set<unknown>
+  reverse?: boolean
   config?: {
     memory?: number
     env?: Record<string, string>
     [key: string]: unknown
   }
-  [key: string]: unknown
+  [key: string]: string | Record<string, unknown> | unknown[] | Set<unknown> | boolean | undefined
 }
 
 /**
@@ -32,7 +39,7 @@ export interface CompileOptions {
 /**
  * Extracts worker-specific metadata from MDXLD frontmatter
  */
-function extractWorkerMetadata(mdxld: MDXLD, options?: CompileOptions): WorkerConfig {
+function extractWorkerMetadata(mdxld: MDXLD, options?: CompileOptions): ExtendedMetadata {
   // Process metadata recursively to handle nested objects
   const processMetadata = (data: Record<string, unknown>): Record<string, unknown> => {
     if (!data || typeof data !== 'object') return {}
@@ -115,7 +122,7 @@ function extractWorkerMetadata(mdxld: MDXLD, options?: CompileOptions): WorkerCo
   const processedData = processMetadata(mdxld.data ?? {})
 
   // Handle special fields from mdxld and data
-  const specialFields = ['type', 'context', 'id']
+  const specialFields = ['type', 'context', 'id', 'language', 'base', 'vocab', 'list', 'set', 'reverse'] as const
   specialFields.forEach((field) => {
     const value = mdxld[field] || processedData[`$${field}`] || processedData[`@${field}`] || processedData[field]
 
@@ -124,6 +131,11 @@ function extractWorkerMetadata(mdxld: MDXLD, options?: CompileOptions): WorkerCo
       processedData[field] = value
       processedData[`@${field}`] = value
       processedData[`$${field}`] = value
+
+      // Special handling for Set values
+      if (field === 'set' && Array.isArray(value)) {
+        processedData.set = new Set(value)
+      }
     }
   })
 
@@ -147,7 +159,7 @@ function extractWorkerMetadata(mdxld: MDXLD, options?: CompileOptions): WorkerCo
   const workerData = (processedData['$worker'] || processedData['@worker']) as WorkerConfig | undefined
 
   // Start with base metadata
-  const metadata = {
+  const baseMetadata: ExtendedMetadata = {
     name: '',
     routes: [],
     config: {
@@ -156,19 +168,33 @@ function extractWorkerMetadata(mdxld: MDXLD, options?: CompileOptions): WorkerCo
         NODE_ENV: 'production',
       },
     },
-    // Add processed metadata with both prefixed and unprefixed versions
+    // Ensure all special fields are preserved
+    type: mdxld.type,
+    context: mdxld.context,
+    language: mdxld.language,
+    base: mdxld.base,
+    vocab: mdxld.vocab,
+    list: mdxld.list,
+    set: mdxld.set,
+    reverse: mdxld.reverse
+  }
+
+  // Add prefixed properties with proper type assertions
+  const prefixedMetadata = {
+    '@type': processedData['@type'] as string | undefined,
+    '$type': processedData['$type'] as string | undefined,
+    '@id': processedData['@id'] as string | undefined,
+    '$id': processedData['$id'] as string | undefined,
+    '@context': processedData['@context'] as string | Record<string, unknown> | undefined,
+    '$context': processedData['$context'] as string | Record<string, unknown> | undefined
+  }
+
+  // Combine base metadata with processed data and prefixed properties
+  const metadata: ExtendedMetadata = {
+    ...baseMetadata,
     ...processedData,
-    // Ensure type and context are preserved
-    ...(mdxld.type ? { type: mdxld.type } : {}),
-    ...(mdxld.context ? { context: mdxld.context } : {}),
-    // Ensure list metadata is preserved
-    ...(processedData.list ? { list: processedData.list } : {}),
-    // Ensure prefixed properties are preserved
-    ...(processedData['@type'] ? { '@type': processedData['@type'] } : {}),
-    ...(processedData['$type'] ? { $type: processedData['$type'] } : {}),
-    ...(processedData['@id'] ? { '@id': processedData['@id'] } : {}),
-    ...(processedData['$id'] ? { $id: processedData['$id'] } : {}),
-  } as ExtendedMetadata
+    ...prefixedMetadata
+  }
 
   // Apply options if provided
   if (options?.worker) {
@@ -301,9 +327,10 @@ const preprocessYaml = (content: string): string => {
       // Special handling for prefixed keys
       const baseKey = key.replace(/^[@$]/, '')
       const isSpecialField = ['type', 'id', 'context', 'list', 'vocab'].includes(baseKey)
+      const hasPrefix = key.startsWith('@') || key.startsWith('$')
 
-      // Process key
-      const quotedKey = quoteKey(key)
+      // Process key - preserve original prefix
+      const quotedKey = hasPrefix ? `"${key}"` : quoteKey(key)
 
       // Handle different value types
       let processedValue = ''
@@ -319,6 +346,9 @@ const preprocessYaml = (content: string): string => {
       } else if (value === 'true' || value === 'false' || !isNaN(Number(value))) {
         // Preserve boolean and numeric values
         processedValue = value
+      } else if (value.startsWith('@') || value.startsWith('$')) {
+        // Preserve prefixed values
+        processedValue = `"${value}"`
       } else {
         // Process other values
         processedValue = value ? processValue(value) : ''
