@@ -1,0 +1,6 @@
+name = "mdxld-worker"
+main = "src/templates/worker.ts"
+compatibility_date = "2024-01-01"
+
+[build]
+command = "npm run build"
