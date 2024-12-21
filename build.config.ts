@@ -21,7 +21,7 @@ export default defineConfig({
     // Keep only essential defines
     options.define = {
       'process.env.NODE_ENV': '"production"',
-      'import.meta.url': '"file:///worker.js"'
+      'import.meta': JSON.stringify({ url: 'file:///worker.js' })
     }
     // Ensure proper ESM handling
     options.splitting = false

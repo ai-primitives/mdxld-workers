@@ -164,6 +164,7 @@ export async function compile(source: string, options: CompileOptions): Promise<
       platform: 'browser',
       define: {
         'process.env.NODE_ENV': '"production"',
+        'import.meta': JSON.stringify({ url: 'file:///worker.js' })
       },
     })
 
