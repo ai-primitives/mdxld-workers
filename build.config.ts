@@ -13,15 +13,14 @@ export default defineConfig({
   noExternal: ['mdxld'],
   esbuildOptions(options) {
     // Use browser platform for better worker compatibility
-    options.platform = 'browser'
+    options.platform = 'neutral'
     options.format = 'esm'
     options.bundle = true
     options.mainFields = ['module', 'main']
-    options.conditions = ['import', 'module']
+    options.conditions = ['import', 'module', 'default']
     // Keep only essential defines
     options.define = {
-      'process.env.NODE_ENV': '"production"',
-      'import.meta': JSON.stringify({ url: 'file:///worker.js' })
+      'process.env.NODE_ENV': '"production"'
     }
     // Ensure proper ESM handling
     options.splitting = false

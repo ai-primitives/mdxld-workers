@@ -161,10 +161,11 @@ export async function compile(source: string, options: CompileOptions): Promise<
       write: false,
       bundle: true,
       format: 'esm',
-      platform: 'browser',
+      platform: 'neutral',
+      mainFields: ['module', 'main'],
+      conditions: ['import', 'module', 'default'],
       define: {
-        'process.env.NODE_ENV': '"production"',
-        'import.meta': JSON.stringify({ url: 'file:///worker.js' })
+        'process.env.NODE_ENV': '"production"'
       },
     })
 
