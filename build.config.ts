@@ -1,5 +1,4 @@
 import { defineConfig } from 'tsup'
-import { resolve } from 'path'
 
 export default defineConfig({
   entry: ['src/index.ts', 'src/cli/index.ts'],
@@ -17,10 +16,9 @@ export default defineConfig({
     options.platform = 'node'
     options.target = ['esnext']
     options.define = {
-      'process.env.NODE_ENV': '"production"'
-    }
-    options.supported = {
-      'import.meta.url': false
+      'process.env.NODE_ENV': '"production"',
+      'import.meta': '{}',
+      'import.meta.url': '""'
     }
   }
 })
