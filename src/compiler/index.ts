@@ -1,20 +1,11 @@
-import type { MDXLD } from 'mdxld'
+import type { MDXLD } from '../types'
 import { parse } from 'mdxld'
 import * as esbuild from 'esbuild'
-import { compile as compileMDX } from '@mdx-js/mdx'
-import { createWorkerTemplate } from '../templates/worker.js'
 
 /**
  * Configuration options for MDX compilation
  */
 export interface CompileOptions {
-  /** JSX compilation options */
-  jsx: {
-    /** Import source for JSX runtime */
-    importSource: 'hono/jsx'
-    /** JSX runtime mode */
-    runtime: 'react-jsx'
-  }
   /** Worker configuration */
   worker: {
     /** Worker script name */
@@ -78,48 +69,30 @@ export async function compile(source: string, options: CompileOptions): Promise<
     // Extract worker metadata
     const metadata = extractWorkerMetadata(mdxld)
 
-    // Compile MDX content with proper JSX configuration
-    const compiledMDX = await compileMDX(mdxld.content, {
-      jsx: true,
-      jsxRuntime: 'automatic',
-      jsxImportSource: options.jsx.importSource,
-      development: false,
-      outputFormat: 'function-body',
-      providerImportSource: '@mdx-js/react',
-    })
-
-    // Generate worker code using template
-    const workerCode = createWorkerTemplate(
-      {
-        ...mdxld,
-        content: String(compiledMDX),
+    // Create worker context
+    const workerContext = {
+      metadata: {
+        ...metadata,
+        context: mdxld.context,
+        type: mdxld.type,
+        data: mdxld.data
       },
-      {
-        name: metadata.name || options.worker.name,
-        routes: metadata.routes || options.worker.routes,
-        compatibilityDate: options.worker.compatibilityDate,
-      },
-    )
+      content: mdxld.content
+    }
 
     // Bundle with esbuild
     const result = await esbuild.build({
-      stdin: {
-        contents: workerCode,
-        loader: 'tsx',
-        resolveDir: process.cwd(),
-      },
+      entryPoints: ['./src/templates/worker.ts'],
       bundle: true,
       write: false,
       format: 'esm',
       target: 'esnext',
       platform: 'browser',
-      jsx: 'automatic',
-      jsxImportSource: options.jsx.importSource,
       external: ['__STATIC_CONTENT_MANIFEST'],
       metafile: true,
       define: {
-        'process.env.NODE_ENV': '"production"',
-      },
+        WORKER_CONTEXT: JSON.stringify(workerContext)
+      }
     })
 
     if (!result.outputFiles?.[0]) {
