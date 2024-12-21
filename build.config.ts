@@ -11,20 +11,17 @@ export default defineConfig({
   outDir: 'dist',
   external: ['mdxld', 'esbuild', 'commander', 'execa'],
   platform: 'node',
+  treeshake: true,
+  splitting: true,
   esbuildOptions(options) {
     options.bundle = true
-    options.platform = 'node'
+    options.platform = 'neutral'
     options.target = ['esnext']
     options.format = 'esm'
-    options.define = {
-      'process.env.NODE_ENV': '"production"',
-      'global': 'globalThis'
-    }
     options.mainFields = ['module', 'main']
     options.conditions = ['import', 'module']
-    // Ensure proper ESM handling
-    options.supported = {
-      'import.meta.url': true
+    options.define = {
+      'process.env.NODE_ENV': '"production"'
     }
   }
 })

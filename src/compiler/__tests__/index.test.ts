@@ -31,8 +31,10 @@ describe('MDXLD Worker Compiler', () => {
         .replace(/](\s*{)/g, '],$1')
         .replace(/}(\s*\[)/g, '},$1')
         .replace(/](\s*\[)/g, '],$1')
-        // Ensure property names are properly quoted
-        .replace(/([{,]\s*)([a-zA-Z$@][a-zA-Z0-9$@_]*)\s*:/g, '$1"$2":')
+        // Handle @ and $ prefixed properties
+        .replace(/([{,]\s*)(['"]?)[@$]([a-zA-Z][a-zA-Z0-9_]*)(['"]?)\s*:/g, '$1"$3":')
+        // Quote all property names
+        .replace(/([{,]\s*)(['"]?)([a-zA-Z$@][a-zA-Z0-9$@_]*)(['"]?)\s*:/g, '$1"$3":')
         // Fix any remaining unquoted property names
         .replace(/([{,]\s*)([^"'\s][^:\s]*)\s*:/g, '$1"$2":')
         // Fix any missing commas after quoted values
@@ -49,6 +51,9 @@ describe('MDXLD Worker Compiler', () => {
         .replace(/]\s*\[/g, '],[')
         // Remove any double commas
         .replace(/,,+/g, ',')
+        // Handle escaped quotes in property values
+        .replace(/\\"/g, '"')
+        .replace(/"([^"]*)":/g, (_, p1) => `"${p1.replace(/"/g, '\\"')}":`)
 
       // Parse the cleaned JSON string
       return JSON.parse(cleanJson)
