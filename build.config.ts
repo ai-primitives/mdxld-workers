@@ -9,20 +9,19 @@ export default defineConfig({
   minify: false,
   target: 'esnext',
   outDir: 'dist',
-  external: ['mdxld', 'esbuild', 'commander', 'execa'],
+  external: ['mdxld', 'esbuild', 'commander', 'execa', 'path', 'url'],
   platform: 'node',
   treeshake: true,
   splitting: true,
   esbuildOptions(options) {
     options.bundle = true
-    options.platform = 'neutral'
+    options.platform = 'node'
     options.target = ['esnext']
     options.format = 'esm'
     options.mainFields = ['module', 'main']
     options.conditions = ['import', 'module']
     options.define = {
       'process.env.NODE_ENV': '"production"',
-      'import.meta.url': '"file:///dist/index.js"',
       'global': 'globalThis'
     }
   }
