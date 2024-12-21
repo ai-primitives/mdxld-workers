@@ -211,11 +211,11 @@ export async function compile(source: string, options: CompileOptions): Promise<
     const workerTemplate = await esbuild.build({
       stdin: {
         contents: `
-          // Define worker context without relying on import.meta
-          globalThis.WORKER_CONTEXT = ${JSON.stringify(workerContext)};
+          // Define worker context
+          const WORKER_CONTEXT = ${JSON.stringify(workerContext)};
           
           // Export worker instance as ESM default export
-          export default {
+          const worker = {
             async fetch(_request) {
               return new Response(WORKER_CONTEXT.content, {
                 headers: {
@@ -225,17 +225,19 @@ export async function compile(source: string, options: CompileOptions): Promise<
               });
             },
           };
+
+          export { worker as default };
         `,
         loader: 'ts',
       },
       write: false,
       bundle: true,
       format: 'esm',
-      platform: 'node',
+      platform: 'browser',
       target: ['esnext'],
       define: {
         'process.env.NODE_ENV': '"production"',
-        global: 'globalThis',
+        'global': 'globalThis',
       },
     })
 
