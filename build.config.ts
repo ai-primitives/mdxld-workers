@@ -18,10 +18,13 @@ export default defineConfig({
     options.format = 'esm'
     options.define = {
       'process.env.NODE_ENV': '"production"',
-      'global': 'globalThis',
-      'import.meta': '{ url: "file:///" + __dirname }'
+      'global': 'globalThis'
     }
     options.mainFields = ['module', 'main']
     options.conditions = ['import', 'module']
+    // Ensure proper ESM handling
+    options.supported = {
+      'import.meta.url': true
+    }
   }
 })

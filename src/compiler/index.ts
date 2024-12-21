@@ -237,7 +237,7 @@ export async function compile(source: string, options: CompileOptions): Promise<
       target: ['esnext'],
       define: {
         'process.env.NODE_ENV': '"production"',
-        'global': 'globalThis',
+        global: 'globalThis',
       },
     })
 
