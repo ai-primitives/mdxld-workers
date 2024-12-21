@@ -207,37 +207,39 @@ export async function compile(source: string, options: CompileOptions): Promise<
       content: mdxld.content,
     }
 
-    // Read worker template directly
+    // Generate worker code as ESM
+    const workerCode = `
+      // Worker context
+      const workerContext = ${JSON.stringify(workerContext)};
+      
+      // Create fetch handler
+      async function handleFetch(request) {
+        return new Response(workerContext.content, {
+          headers: {
+            'Content-Type': 'text/html',
+            'X-MDXLD-Metadata': JSON.stringify(workerContext.metadata),
+          },
+        });
+      }
+
+      // Export fetch handler
+      export default { fetch: handleFetch };
+    `;
+
+    // Build worker bundle
     const workerTemplate = await esbuild.build({
       stdin: {
-        contents: `
-          // Define worker context
-          const WORKER_CONTEXT = ${JSON.stringify(workerContext)};
-          
-          // Export worker instance as ESM default export
-          const worker = {
-            async fetch(_request) {
-              return new Response(WORKER_CONTEXT.content, {
-                headers: {
-                  'Content-Type': 'text/html',
-                  'X-MDXLD-Metadata': JSON.stringify(WORKER_CONTEXT.metadata),
-                },
-              });
-            },
-          };
-
-          export { worker as default };
-        `,
-        loader: 'ts',
+        contents: workerCode,
+        loader: 'js',
       },
       write: false,
       bundle: true,
       format: 'esm',
-      platform: 'browser',
+      platform: 'neutral',
       target: ['esnext'],
+      mainFields: ['module', 'main'],
       define: {
         'process.env.NODE_ENV': '"production"',
-        global: 'globalThis',
       },
     })
 

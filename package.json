@@ -20,7 +20,7 @@
     "bin"
   ],
   "scripts": {
-    "build": "tsup --config build.config.ts",
+    "build": "node scripts/build.js",
     "build:types": "pnpm run build && wrangler types",
     "test": "vitest run",
     "test:watch": "vitest",

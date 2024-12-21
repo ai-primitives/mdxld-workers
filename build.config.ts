@@ -1,28 +1,24 @@
 import { defineConfig } from 'tsup'
 
 export default defineConfig({
-  entry: ['src/index.ts', 'src/cli/index.ts'],
-  format: ['esm'],
+  entry: ['src/index.ts'],
   dts: true,
   clean: true,
   sourcemap: true,
   minify: false,
   target: 'esnext',
   outDir: 'dist',
-  external: ['mdxld', 'esbuild', 'commander', 'execa', 'path', 'url'],
-  platform: 'node',
+  external: ['mdxld', 'esbuild', 'commander', 'execa'],
+  format: ['esm'],
   treeshake: true,
-  splitting: true,
+  splitting: false,
+  env: {
+    NODE_ENV: 'production'
+  },
   esbuildOptions(options) {
     options.bundle = true
-    options.platform = 'node'
-    options.target = ['esnext']
-    options.format = 'esm'
+    options.platform = 'neutral'
     options.mainFields = ['module', 'main']
-    options.conditions = ['import', 'module']
-    options.define = {
-      'process.env.NODE_ENV': '"production"',
-      'global': 'globalThis'
-    }
+    options.format = 'esm'
   }
 })
