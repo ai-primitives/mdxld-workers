@@ -3,8 +3,6 @@
     "target": "esnext",
     "module": "esnext",
     "lib": ["esnext", "dom", "webworker"],
-    "jsx": "react-jsx",
-    "jsxImportSource": "hono/jsx",
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
@@ -16,7 +14,7 @@
     "paths": {
       "@/*": ["./src/*"]
     },
-    "types": ["@cloudflare/workers-types", "node"],
+    "types": ["node", "./worker-configuration"],
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
@@ -25,8 +23,8 @@
   },
   "include": [
     "src/**/*.ts",
-    "src/**/*.tsx",
-    "src/types/**/*.d.ts"
+    "src/**/*.d.ts",
+    "worker-configuration.d.ts"
   ],
   "exclude": ["node_modules", "dist"]
 }

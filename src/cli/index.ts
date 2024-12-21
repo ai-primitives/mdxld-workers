@@ -15,7 +15,7 @@ export const program = new Command()
   .version(version, '-v, --version', 'output the current version')
   .configureOutput({
     writeOut: (str) => console.log(str),
-    writeErr: (str) => console.error(str)
+    writeErr: (str) => console.error(str),
   })
   .addHelpCommand()
   .showHelpAfterError()
