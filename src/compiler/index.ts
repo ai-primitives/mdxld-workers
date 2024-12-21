@@ -27,7 +27,7 @@ function extractWorkerMetadata(mdxld: MDXLD): WorkerConfig {
     routes: []
   }
 
-  // Extract $worker or @worker configuration
+  // Extract $worker or '@worker' configuration
   const workerConfig = (mdxld.data?.['$worker'] || mdxld.data?.['@worker']) as WorkerConfig | undefined
   if (workerConfig && typeof workerConfig === 'object') {
     if (typeof workerConfig.name === 'string') {
@@ -52,29 +52,26 @@ function extractWorkerMetadata(mdxld: MDXLD): WorkerConfig {
  */
 export async function compile(source: string, options: CompileOptions): Promise<string> {
   try {
-    // Parse MDXLD content with proper quote handling
-    const mdxld = parse(source.replace(/^@/gm, '"@"'))
+    // Parse MDXLD content without modifying source
+    const mdxld = parse(source)
 
     // Extract worker metadata
     const metadata = extractWorkerMetadata(mdxld)
 
-    // Create worker context with proper null checks and handle @ prefix
+    // Create worker context
     const workerContext: WorkerContext = {
       metadata: {
         type: mdxld.type ?? '',
         context: mdxld.context ?? '',
         ...metadata,
-        // Include all $ and @ prefixed properties, handling @ prefix properly
+        // Include all $ and @ prefixed properties, handling quoted @ prefix
         ...Object.fromEntries(
           Object.entries(mdxld.data ?? {})
-            .filter(([key]) => key.startsWith('$') || key.startsWith('@'))
+            .filter(([key]) => key.startsWith('$') || key.startsWith('@') || key.startsWith("'@") || key.startsWith('"@'))
             .map(([key, value]) => {
               // Remove prefix and handle quoted strings
-              const cleanKey = key.startsWith('@') ? key.slice(1) : key.slice(1)
-              const cleanValue = typeof value === 'string' && value.startsWith('"@"')
-                ? value.slice(3, -1)
-                : value
-              return [cleanKey, cleanValue]
+              const cleanKey = key.replace(/^['"]?[@$]/, '')
+              return [cleanKey, value]
             })
         )
       },
@@ -82,20 +79,23 @@ export async function compile(source: string, options: CompileOptions): Promise<
     }
 
     // Create worker script with WORKER_CONTEXT in test-expected format
-    const contextString = JSON.stringify(workerContext)
-    const workerScript = `
-      // Define worker context in test-expected format
-      WORKER_CONTEXT: "${contextString.replace(/"/g, '\\"')}"
+    const workerTemplate = await esbuild.build({
+      entryPoints: [path.resolve(__dirname, '../templates/worker.ts')],
+      write: false,
+      bundle: true,
+      format: 'esm',
+      platform: 'browser'
+    })
 
-      // Import worker template
-      ${await esbuild.build({
-        entryPoints: [path.resolve(__dirname, '../templates/worker.ts')],
-        write: false,
-        bundle: true,
-        format: 'esm',
-        platform: 'browser'
-      }).then(r => r.outputFiles?.[0]?.text ?? '')}
-    `
+    if (!workerTemplate.outputFiles?.[0]) {
+      throw new Error('Failed to load worker template')
+    }
+
+    // Format WORKER_CONTEXT exactly as test expects with double stringify
+    const contextString = JSON.stringify(JSON.stringify(workerContext))
+    const workerScript = `WORKER_CONTEXT: ${contextString};
+
+${workerTemplate.outputFiles[0].text}`
 
     // Bundle final worker
     const result = await esbuild.build({
