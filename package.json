@@ -14,7 +14,7 @@
     "bin"
   ],
   "scripts": {
-    "build": "tsup && wrangler types",
+    "build": "tsup --config build.config.ts && wrangler types",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint src",

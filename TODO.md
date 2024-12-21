@@ -34,6 +34,12 @@
 
 ## Technical Challenges & Blockers
 
+- [ ] Build Configuration
+  - [ ] tsup build failures
+    - Issue: No input files found for tsup build
+    - Location: CI build step
+    - Impact: Prevents package compilation
+    - Resolution: Need to specify entry points in build configuration
 - [ ] Cloudflare Workers Integration
   - [ ] Verify Platform API access and permissions
   - [ ] Test worker deployment process
@@ -52,6 +58,7 @@
     - Issue: mdxld@^1.0.0 not available (latest: 0.1.3)
     - Status: Blocked on mdxld package update
     - Impact: CI build failures
+    - Resolution: Using latest available version (0.1.3)
     - Resolution: Using latest available version (0.1.3)
 - [x] Test Implementation
   - [x] Fix Vitest module mocking issues
