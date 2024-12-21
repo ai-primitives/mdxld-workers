@@ -22,9 +22,8 @@ export default defineConfig({
     options.conditions = ['import', 'module']
     options.define = {
       'process.env.NODE_ENV': '"production"',
-      'import.meta': '{ url: "file:///dist/index.js" }',
+      'import.meta.url': '"file:///dist/index.js"',
       'global': 'globalThis'
     }
-    options.inject = ['./src/shims/import-meta-url.js']
   }
 })
