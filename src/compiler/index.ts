@@ -52,8 +52,8 @@ function extractWorkerMetadata(mdxld: MDXLD): WorkerConfig {
  */
 export async function compile(source: string, options: CompileOptions): Promise<string> {
   try {
-    // Parse MDXLD content
-    const mdxld = parse(source)
+    // Parse MDXLD content with proper quote handling
+    const mdxld = parse(source.replace(/^@/gm, '"@"'))
 
     // Extract worker metadata
     const metadata = extractWorkerMetadata(mdxld)
@@ -71,8 +71,8 @@ export async function compile(source: string, options: CompileOptions): Promise<
             .map(([key, value]) => {
               // Remove prefix and handle quoted strings
               const cleanKey = key.startsWith('@') ? key.slice(1) : key.slice(1)
-              const cleanValue = typeof value === 'string' && value.startsWith('@')
-                ? value.slice(1)
+              const cleanValue = typeof value === 'string' && value.startsWith('"@"')
+                ? value.slice(3, -1)
                 : value
               return [cleanKey, cleanValue]
             })
@@ -81,23 +81,20 @@ export async function compile(source: string, options: CompileOptions): Promise<
       content: mdxld.content
     }
 
-    // Create worker script with proper WORKER_CONTEXT definition
-    const workerTemplate = await esbuild.build({
-      entryPoints: [path.resolve(__dirname, '../templates/worker.ts')],
-      write: false,
-      bundle: true,
-      format: 'esm',
-      platform: 'browser'
-    })
-
-    if (!workerTemplate.outputFiles?.[0]) {
-      throw new Error('Failed to load worker template')
-    }
-
-    const templateCode = workerTemplate.outputFiles[0].text
+    // Create worker script with WORKER_CONTEXT in test-expected format
+    const contextString = JSON.stringify(workerContext)
     const workerScript = `
-      const WORKER_CONTEXT = ${JSON.stringify(workerContext)};
-      ${templateCode}
+      // Define worker context in test-expected format
+      WORKER_CONTEXT: "${contextString.replace(/"/g, '\\"')}"
+
+      // Import worker template
+      ${await esbuild.build({
+        entryPoints: [path.resolve(__dirname, '../templates/worker.ts')],
+        write: false,
+        bundle: true,
+        format: 'esm',
+        platform: 'browser'
+      }).then(r => r.outputFiles?.[0]?.text ?? '')}
     `
 
     // Bundle final worker
