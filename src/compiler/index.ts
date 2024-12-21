@@ -28,10 +28,14 @@ function extractWorkerMetadata(mdxld: MDXLD): WorkerConfig {
   }
 
   // Extract $worker or @worker configuration
-  const workerConfig = mdxld.data?.['$worker'] || mdxld.data?.['@worker'] as WorkerConfig | undefined
+  const workerConfig = (mdxld.data?.['$worker'] || mdxld.data?.['@worker']) as WorkerConfig | undefined
   if (workerConfig && typeof workerConfig === 'object') {
-    metadata.name = typeof workerConfig.name === 'string' ? workerConfig.name : ''
-    metadata.routes = Array.isArray(workerConfig.routes) ? workerConfig.routes : []
+    if (typeof workerConfig.name === 'string') {
+      metadata.name = workerConfig.name
+    }
+    if (Array.isArray(workerConfig.routes)) {
+      metadata.routes = workerConfig.routes
+    }
     // Copy additional configuration
     Object.entries(workerConfig).forEach(([key, value]) => {
       if (key !== 'name' && key !== 'routes') {

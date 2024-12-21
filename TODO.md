@@ -66,7 +66,10 @@
     - Details:
       - Property 'type' is optional in mdxld but required in our implementation
       - Property 'context' has incompatible type definitions
-    - Resolution: Need to update our MDXLD type to handle optional properties
+      - WorkerConfig type needs proper property definitions for 'name' and 'routes'
+      - Error: Property 'name' does not exist on type 'object'
+      - Error: Property 'routes' does not exist on type 'object'
+    - Resolution: Need to update our MDXLD and WorkerConfig types to handle optional properties correctly
 - [x] Test Implementation
   - [x] Fix Vitest module mocking issues
     - [x] Move vi.mock() calls to top of file
