@@ -212,7 +212,10 @@ export async function compile(source: string, options: CompileOptions): Promise<
     const workerTemplate = await esbuild.build({
       stdin: {
         contents: `
+          // Define worker context without relying on import.meta
           globalThis.WORKER_CONTEXT = ${JSON.stringify(workerContext)};
+          
+          // Export worker instance
           const worker = {
             async fetch(_request) {
               return new Response(WORKER_CONTEXT.content, {
@@ -223,6 +226,7 @@ export async function compile(source: string, options: CompileOptions): Promise<
               });
             },
           };
+          
           globalThis.default = worker;
         `,
         loader: 'ts',
@@ -234,13 +238,8 @@ export async function compile(source: string, options: CompileOptions): Promise<
       target: ['esnext'],
       define: {
         'process.env.NODE_ENV': '"production"',
-        global: 'globalThis',
-        'globalThis.process': 'undefined',
-      },
-      conditions: ['worker', 'browser'],
-      supported: {
-        'import.meta.url': false,
-      },
+        'global': 'globalThis'
+      }
     })
 
     if (!workerTemplate.outputFiles?.[0]) {
